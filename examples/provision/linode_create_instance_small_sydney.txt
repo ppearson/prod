@@ -1,0 +1,10 @@
+# Deploy Linode node in Sydney
+provider: linode
+action: createInstance
+
+region: ap-southeast
+image: linode/debian11
+type: g6-nanode-1
+root_pass: o2t34svsg5de5hhd0b
+label: mysmallserver
+

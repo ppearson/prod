@@ -1,0 +1,125 @@
+/*
+ Prod
+ Copyright 2021 Peter Pearson.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ ---------
+*/
+
+use std::collections::BTreeMap;
+use std::fmt;
+use std::convert::From;
+
+use yaml_rust::{Yaml};
+
+#[derive(Clone, Debug)]
+#[allow(dead_code)]
+pub enum ParamValue {
+    NotSet,
+    Unknown,
+    Bool(bool),
+    Int(i32),
+    Str(String),
+    Array(Vec<ParamValue>)
+}
+
+impl fmt::Display for ParamValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            ParamValue::NotSet => write!(f, "NotSet"),
+            ParamValue::Unknown => write!(f, "Unknown"),
+            ParamValue::Bool(b) => write!(f, "{}", if *b == true {"true"} else {"false"}),
+            ParamValue::Int(i) => write!(f, "{}", i),
+            ParamValue::Str(s) => write!(f, "'{}'", s),
+            ParamValue::Array(arr) => {
+                write!(f, "array [{}] = {{", arr.len())?;
+                for it in arr {
+                    write!(f, " {},", it)?;
+                }
+                write!(f, " }}")
+            }
+        }
+    }
+}
+
+impl From<Yaml> for ParamValue {
+    fn from(item: Yaml) -> Self {
+        match item {
+            Yaml::Boolean(v) => ParamValue::Bool(v),
+            Yaml::Integer(v) => ParamValue::Int(v as i32),
+            Yaml::String(v) => ParamValue::Str(v.to_string()),
+            Yaml::Array(v) => {
+                let mut new_vec = Vec::with_capacity(v.len());
+                for it in v {
+                    new_vec.push(ParamValue::from(it));
+                }
+                ParamValue::Array(new_vec)
+            },
+            _ => ParamValue::Unknown
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Params {
+    pub values:     BTreeMap<String, ParamValue>,
+}
+
+impl fmt::Display for Params {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Params: ({}) {{\n", self.values.len())?;
+        for (key, val) in self.values.clone() {
+            write!(f, " {}: {}\n", key, val)?;
+        }
+        write!(f, "}}")
+    }
+}
+
+impl Params {
+    pub fn new() -> Params {
+        Params { values: BTreeMap::new() }
+    }
+
+    pub fn has_value(&self, key: &str) -> bool {
+        return self.values.contains_key(key);
+    }
+
+    pub fn get_string_value(&self, key: &str) -> Option<String> {
+        let res = self.values.get(key);
+        match res {
+            Some(ParamValue::Str(str_val)) => {
+                return Some(str_val.to_string());
+            },
+            _ => {}
+        };
+
+        None
+    }
+
+    pub fn get_string_value_with_default(&self, key: &str, default: &str) -> String {
+        let res = self.values.get(key);
+        let val = match res {
+            Some(ParamValue::Str(str_val)) => str_val.to_string(),
+            _ => default.to_string()
+        };
+
+        val.to_string()
+    }
+
+    pub fn get_value_as_bool(&self, key: &str, default: bool) -> bool {
+        let res = self.values.get(key);
+        let val = match res {
+            Some(ParamValue::Bool(val)) => *val,
+            _ => default
+        };
+
+        val
+    }
+}
