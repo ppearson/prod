@@ -91,6 +91,11 @@ impl ControlManager {
     }
 
     pub fn perform_actions(&self, actions: &ControlActions) {
+
+        if actions.actions.is_empty() {
+            eprintln!("Error: no actions specified.");
+        }
+
         let provider = self.find_provider(&actions.provider);
 
         if provider.is_none() {
@@ -149,6 +154,18 @@ impl ControlManager {
             // TODO: much better (automatic - based off lookup) despatch than this...
             if action.action == ControlActionType::AddUser {
                 provider.add_user(&mut connection, &action);
+            }
+            else if action.action == ControlActionType::CreateDirectory {
+                provider.create_directory(&mut connection, &action);
+            }
+            else if action.action == ControlActionType::PackagesInstall {
+                provider.install_packages(&mut connection, &action);
+            }
+            else if action.action == ControlActionType::SystemCtl {
+                provider.systemctrl(&mut connection, &action);
+            }
+            else if action.action == ControlActionType::Firewall {
+                provider.firewall(&mut connection, &action);
             }
         }
     }

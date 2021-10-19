@@ -1,0 +1,10 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - systemCtl:
+    service: fail2ban
+    action: start
+
+

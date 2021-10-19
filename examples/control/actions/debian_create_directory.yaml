@@ -1,0 +1,11 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - createDirectory:
+    path: /home/peter/test11
+    permissions: 777
+    owner: peter
+    group: peter
+

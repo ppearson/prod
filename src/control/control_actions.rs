@@ -30,7 +30,11 @@ use super::control_common::{ControlConnection};
 pub enum ControlActionType {
     NotSet,
     Unrecognised,
-    AddUser
+    AddUser,
+    CreateDirectory,
+    PackagesInstall,
+    SystemCtl,
+    Firewall,
 }
 
 impl fmt::Display for ControlActionType {
@@ -39,6 +43,10 @@ impl fmt::Display for ControlActionType {
             ControlActionType::NotSet           => write!(f, "None"),
             ControlActionType::Unrecognised     => write!(f, "Unrecognised"),
             ControlActionType::AddUser          => write!(f, "addUser"),
+            ControlActionType::CreateDirectory  => write!(f, "createDirectory"),
+            ControlActionType::PackagesInstall  => write!(f, "packagesInstall"),
+            ControlActionType::SystemCtl        => write!(f, "systemCtl"),
+            ControlActionType::Firewall         => write!(f, "firewall"),
         }
     }
 }
@@ -116,11 +124,15 @@ impl ControlActions {
     fn from_file_yaml(path: &str) -> Result<ControlActions, FileLoadError> {
         let mut control_actions = ControlActions::new();
 
-        if let Some(mut file) = std::fs::File::open(path).ok() {
+        let file_open_res = std::fs::File::open(path);
+        if let Some(mut file) = file_open_res.ok() {
             let mut yaml_content = String::new();
+
+            let read_from_string_res = file.read_to_string(&mut yaml_content);
     
-            if file.read_to_string(&mut yaml_content).is_ok() {
-                if let Some(document) = YamlLoader::load_from_str(&yaml_content).ok() {
+            if read_from_string_res.is_ok() {
+                let yaml_load_res = YamlLoader::load_from_str(&yaml_content);
+                if let Some(document) = yaml_load_res.ok() {
                     let doc: &Yaml = &document[0];
                     
                     if let yaml_rust::Yaml::Hash(ref hash) = doc {
@@ -176,11 +188,18 @@ impl ControlActions {
         let mut new_action = ControlAction::new();
         // TODO: do this properly, with a registry which maps the name to the Impl derived item...
 
-        if name == "addUser" {
-            new_action.action = ControlActionType::AddUser;
-        }
-        else {
-            new_action.action = ControlActionType::Unrecognised;
+        new_action.action = match name {
+            "addUser" =>            ControlActionType::AddUser,
+            "createDirectory" =>    ControlActionType::CreateDirectory,
+            "packagesInstall" =>    ControlActionType::PackagesInstall,
+            "systemCtl" =>          ControlActionType::SystemCtl,
+            "firewall" =>           ControlActionType::Firewall,
+            _ =>                    ControlActionType::Unrecognised
+        };
+
+        if new_action.action == ControlActionType::Unrecognised {
+            eprintln!("Error: Unrecognised Control Action: '{}', ignoring.", new_action.action);
+            return;
         }
 
         for (key, value) in values {
@@ -217,6 +236,22 @@ pub trait ActionProvider {
     }
 
     fn add_user(&self, _connection: &mut ControlConnection, _params: &ControlAction) -> ActionResult {
+        return ActionResult::NotImplemented;
+    }
+
+    fn create_directory(&self, _connection: &mut ControlConnection, _params: &ControlAction) -> ActionResult {
+        return ActionResult::NotImplemented;
+    }
+
+    fn install_packages(&self, _connection: &mut ControlConnection, _params: &ControlAction) -> ActionResult {
+        return ActionResult::NotImplemented;
+    }
+
+    fn systemctrl(&self, _connection: &mut ControlConnection, _params: &ControlAction) -> ActionResult {
+        return ActionResult::NotImplemented;
+    }
+
+    fn firewall(&self, _connection: &mut ControlConnection, _params: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 

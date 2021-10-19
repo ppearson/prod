@@ -1,0 +1,12 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - firewall:
+    type: ufw
+    enabled: true
+    rules:
+      - "allow 80/tcp"
+
+

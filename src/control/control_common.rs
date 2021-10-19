@@ -46,11 +46,16 @@ impl SSHControl {
     }
 
     pub fn send_command(&mut self, command: &str) {
+//        self.debug(command);
         self.send_command_exec(command);
 //        self.send_command_shell(command);
     }
 
-    pub fn send_command_exec(&mut self, command: &str) {
+    fn debug(&mut self, command: &str) {
+        eprintln!("Command: '{}'", command);
+    }
+
+    fn send_command_exec(&mut self, command: &str) {
         // Currently we spawn a new channel for each request, which isn't great...
         let mut channel = self.session.channel_session().unwrap();
 
@@ -60,7 +65,7 @@ impl SSHControl {
         channel.read_to_string(&mut self.prev_std_out).unwrap();
     }
 
-    pub fn send_command_shell(&mut self, command: &str) {
+    fn send_command_shell(&mut self, command: &str) {
         if !self.have_shell_session {
             self.session.set_timeout(2000);
             let mut channel = self.session.channel_session().unwrap();
@@ -82,8 +87,6 @@ impl SSHControl {
         while let Some(Ok(line)) = response_lines.next() {
             eprintln!("Resp: {}", line);
         }
-
-        
     }
 
     pub fn had_response(&self) -> bool {

@@ -91,6 +91,23 @@ impl Params {
         return self.values.contains_key(key);
     }
 
+    // TODO: YAML is really annoying with numbers, so this is rather hacky...
+    //       Would be better to return an enum or something of the actual type...
+    pub fn get_string_or_int_value_as_string(&self, key: &str) -> Option<String> {
+        let res = self.values.get(key);
+        match res {
+            Some(ParamValue::Str(str_val)) => {
+                return Some(str_val.to_string());
+            },
+            Some(ParamValue::Int(int_val)) => {
+                return Some(format!("{}", int_val));
+            }
+            _ => {}
+        };
+
+        None
+    }
+
     pub fn get_string_value(&self, key: &str) -> Option<String> {
         let res = self.values.get(key);
         match res {
@@ -121,5 +138,23 @@ impl Params {
         };
 
         val
+    }
+
+    pub fn get_values_as_vec_of_strings(&self, key: &str) -> Vec<String> {
+        let mut values = Vec::new();
+        let res = self.values.get(key);
+         match res {
+            Some(ParamValue::Array(vec)) => {
+                for it in vec {
+                    // only strings for the moment...
+                    if let ParamValue::Str(str) = it {
+                        values.push(str.clone());
+                    }
+                }
+            },
+            _ => {}
+        };
+
+        return values;
     }
 }
