@@ -27,7 +27,8 @@ pub enum ParamValue {
     Bool(bool),
     Int(i32),
     Str(String),
-    Array(Vec<ParamValue>)
+    Array(Vec<ParamValue>),
+    Map(BTreeMap<String, ParamValue>)
 }
 
 impl fmt::Display for ParamValue {
@@ -44,6 +45,14 @@ impl fmt::Display for ParamValue {
                     write!(f, " {},", it)?;
                 }
                 write!(f, " }}")
+            },
+            ParamValue::Map(map) => {
+                // TODO:
+                write!(f, "{{")?;
+                for (key, val) in map {
+                    write!(f, " {}: {}, ", key, val)?;
+                }
+                write!(f, "}}")
             }
         }
     }
@@ -61,6 +70,21 @@ impl From<Yaml> for ParamValue {
                     new_vec.push(ParamValue::from(it));
                 }
                 ParamValue::Array(new_vec)
+            },
+            Yaml::Hash(v) => {
+                let mut new_map = BTreeMap::new();
+
+                for (key, val) in v {
+                    if let Yaml::String(key_string) = key {
+                        let val_param = ParamValue::from(val);
+                        new_map.insert(key_string, val_param);
+                    }
+                    else {
+                        // TOOD: error handling...
+                    }
+                }
+
+                ParamValue::Map(new_map)
             },
             _ => ParamValue::Unknown
         }
@@ -156,5 +180,10 @@ impl Params {
         };
 
         return values;
+    }
+
+    pub fn get_raw_value(&self, key: &str) -> Option<&ParamValue> {
+        let res = self.values.get(key);
+        return res;
     }
 }

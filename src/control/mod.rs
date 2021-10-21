@@ -19,3 +19,5 @@ pub mod control_actions;
 pub mod control_common;
 pub mod control_manager;
 
+pub mod terminal_helpers_linux;
+

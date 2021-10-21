@@ -167,6 +167,9 @@ impl ControlManager {
             else if action.action == ControlActionType::Firewall {
                 provider.firewall(&mut connection, &action);
             }
+            else if action.action == ControlActionType::EditFile {
+                provider.edit_file(&mut connection, &action);
+            }
         }
     }
 }

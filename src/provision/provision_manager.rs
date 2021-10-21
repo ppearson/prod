@@ -78,6 +78,7 @@ impl ProvisionManager {
 
         // hopefully, providers don't need to be authenticated with their API key/token,
         // so we can just do anonymous GET requests...
+        // DigitalOcean apparently needs to be :(
 
         provider_item.list_available(list_type);
 

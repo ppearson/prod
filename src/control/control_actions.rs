@@ -35,6 +35,7 @@ pub enum ControlActionType {
     PackagesInstall,
     SystemCtl,
     Firewall,
+    EditFile,
 }
 
 impl fmt::Display for ControlActionType {
@@ -47,6 +48,7 @@ impl fmt::Display for ControlActionType {
             ControlActionType::PackagesInstall  => write!(f, "packagesInstall"),
             ControlActionType::SystemCtl        => write!(f, "systemCtl"),
             ControlActionType::Firewall         => write!(f, "firewall"),
+            ControlActionType::EditFile         => write!(f, "editFile"),
         }
     }
 }
@@ -132,29 +134,39 @@ impl ControlActions {
     
             if read_from_string_res.is_ok() {
                 let yaml_load_res = YamlLoader::load_from_str(&yaml_content);
-                if let Some(document) = yaml_load_res.ok() {
-                    let doc: &Yaml = &document[0];
-                    
-                    if let yaml_rust::Yaml::Hash(ref hash) = doc {
-                        for (key, value) in hash {
-                            match key.as_str().unwrap() {
-                                "provider" => {
-                                    control_actions.provider = value.as_str().unwrap().to_string();
-                                },
-                                "host" => {
-                                    control_actions.host = value.as_str().unwrap().to_string();
-                                },
-                                "user" => {
-                                    control_actions.user = value.as_str().unwrap().to_string();
-                                },
-                                "actions" => {
-                                    control_actions.ingest_control_actions_yaml_items(&value);
-                                },
-                                _ => {}
+                if yaml_load_res.is_ok() {
+                    if let Some(document) = yaml_load_res.ok() {
+                        let doc: &Yaml = &document[0];
+                        
+                        if let yaml_rust::Yaml::Hash(ref hash) = doc {
+                            for (key, value) in hash {
+                                match key.as_str().unwrap() {
+                                    "provider" => {
+                                        control_actions.provider = value.as_str().unwrap().to_string();
+                                    },
+                                    "host" => {
+                                        control_actions.host = value.as_str().unwrap().to_string();
+                                    },
+                                    "user" => {
+                                        control_actions.user = value.as_str().unwrap().to_string();
+                                    },
+                                    "actions" => {
+                                        control_actions.ingest_control_actions_yaml_items(&value);
+                                    },
+                                    _ => {}
+                                }
                             }
-                        }
 
-                        return Ok(control_actions);
+                            return Ok(control_actions);
+                        }
+                    }
+                }
+                else {
+                    // it's an error...
+                    if let Some(err) = yaml_load_res.err() {
+                        // print error
+                        eprintln!("Error loading YAML file: {}, with error: {}", path,
+                                err);
                     }
                 }
             }
@@ -194,6 +206,7 @@ impl ControlActions {
             "packagesInstall" =>    ControlActionType::PackagesInstall,
             "systemCtl" =>          ControlActionType::SystemCtl,
             "firewall" =>           ControlActionType::Firewall,
+            "editFile" =>           ControlActionType::EditFile,
             _ =>                    ControlActionType::Unrecognised
         };
 
@@ -252,6 +265,10 @@ pub trait ActionProvider {
     }
 
     fn firewall(&self, _connection: &mut ControlConnection, _params: &ControlAction) -> ActionResult {
+        return ActionResult::NotImplemented;
+    }
+
+    fn edit_file(&self, _connection: &mut ControlConnection, _params: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 

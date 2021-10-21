@@ -13,8 +13,14 @@
  ---------
 */
 
+use crate::params::{ParamValue, Params};
+
 use super::control_actions::{ActionProvider, ActionResult, ControlAction};
 use super::control_common::{ControlConnection};
+use super::terminal_helpers_linux;
+
+use std::path::Path;
+use std::io::prelude::*;
 
 use rpassword::read_password;
 
@@ -175,6 +181,9 @@ impl ActionProvider for AProviderLinuxDebian {
         }
 
         // incredibly basic for the moment...
+        // in theory we should probably be more type-specific, and 'schema'd', but given there
+        // are aliases for rules, it'd be quite complicated to handle that I think, so better
+        // for the moment to allow freeform strings...
         let rules = params.params.get_values_as_vec_of_strings("rules");
         for rule in rules {
             let ufw_command = format!(" ufw {}", rule);
@@ -183,11 +192,162 @@ impl ActionProvider for AProviderLinuxDebian {
 
         if params.params.has_value("enabled") {
             let is_enabled = params.params.get_value_as_bool("enabled", true);
-            let ufw_command = format!(" ufw {}", if is_enabled { "enable" } else { "disable"});
+            let ufw_command = format!(" ufw --force {}", if is_enabled { "enable" } else { "disable"});
             connection.conn.send_command(&ufw_command);
         }
 
         return ActionResult::Success;
     }
 
+    fn edit_file(&self, connection: &mut ControlConnection, params: &ControlAction) -> ActionResult {
+        let filepath = params.params.get_string_value("filepath");
+        if filepath.is_none() {
+            return ActionResult::InvalidParams;
+        }
+
+        // check we have stuff to actually do
+        if !params.params.has_value("replaceLine") {
+            eprintln!("Error: editFile Control Action had no items to perform...");
+            return ActionResult::InvalidParams;
+        }
+
+        let replace_line_items = extract_replace_line_entry_items_from_params_map(&params.params, "replaceLine");
+        if replace_line_items.is_empty() {
+            eprintln!("Error: editFile Control Action had no items to perform...");
+            return ActionResult::InvalidParams;
+        }
+
+        let filepath = filepath.unwrap();
+        
+        if params.params.get_value_as_bool("backup", false) {
+            // TODO: something more robust than this...
+            let mv_command = format!(" cp {0} {0}.bak", filepath);
+            connection.conn.send_command(&mv_command);
+        }
+
+        // Note: the Stat returned by scp_recv() is currently a private field, so we can only access bits of it,
+        //       so we need to do a full stat call remotely to get the actual info
+        let stat_command = format!(" stat {}", filepath);
+        connection.conn.send_command(&stat_command);
+
+        let stat_response = connection.conn.prev_std_out.clone();
+ //       println!("Stat response: {}", stat_response);
+        // get the details from the stat call...
+        let stat_details = terminal_helpers_linux::extract_details_from_stat_output(&stat_response);
+
+        // download the file
+        let (mut remote_file, _stat) = connection.conn.session.scp_recv(Path::new(&filepath)).unwrap();
+
+        let mut contents = Vec::new();
+        remote_file.read_to_end(&mut contents).unwrap();
+
+        // Close the channel and wait for the whole content to be tranferred
+        remote_file.send_eof().unwrap();
+        remote_file.wait_eof().unwrap();
+        remote_file.close().unwrap();
+        remote_file.wait_close().unwrap();
+
+        let string_contents = String::from_utf8_lossy(&contents);
+        let file_contents_lines = string_contents.lines();
+
+        // brute force replacement...
+
+        let mut new_file_contents_lines = Vec::new();
+        for line in file_contents_lines {
+            let mut have_replaced = false;
+
+            for replace_item in &replace_line_items {
+                if line.contains(&replace_item.match_string) {
+                    new_file_contents_lines.push(replace_item.replace_string.clone());
+                    have_replaced = true;
+                }
+            }
+
+            if !have_replaced {
+                new_file_contents_lines.push(line.to_string());
+            }
+        }
+
+        let new_file_contents_string = new_file_contents_lines.join("\n");
+        let byte_contents = new_file_contents_string.as_bytes();
+
+        // send the file back via upload
+
+        let stat_details = stat_details.unwrap();
+
+        let mode = i32::from_str_radix(&stat_details.0, 8).unwrap();
+
+        let mut remote_file = connection.conn.session.scp_send(Path::new(&filepath), mode, byte_contents.len() as u64, None).unwrap();
+        remote_file.write(byte_contents).unwrap();
+        // Close the channel and wait for the whole content to be tranferred
+        remote_file.send_eof().unwrap();
+        remote_file.wait_eof().unwrap();
+        remote_file.close().unwrap();
+        remote_file.wait_close().unwrap();
+
+        // TODO: change user and group of file to cached value beforehand...
+
+        return ActionResult::Success;
+    }
+}
+
+struct ReplaceLineEntry {
+    pub match_string:        String,
+    pub replace_string:      String,
+    pub report_failure:      bool,
+    pub replaced:            bool,
+}
+
+impl ReplaceLineEntry {
+    pub fn new(match_string: &str, replace_string: &str, report_failure: bool) -> ReplaceLineEntry {
+        ReplaceLineEntry { match_string: match_string.to_string(), replace_string: replace_string.to_string(),
+             report_failure: report_failure, replaced: false }
+    }
+}
+
+fn extract_replace_line_entry_items_from_params_map(params: &Params, key: &str) -> Vec<ReplaceLineEntry> {
+    let mut replace_line_entries = Vec::with_capacity(0);
+
+    // TODO: simplify this, and reduce code duplication...
+
+    let param = params.get_raw_value(key);
+    if let Some(ParamValue::Map(map)) = param {
+        // cope with single items inline as map...
+        let match_string = map.get("matchString");
+        let mut match_string_val = String::new();
+        if let Some(ParamValue::Str(string)) = match_string {
+            match_string_val = string.clone();
+        }
+        let replace_string = map.get("replaceString");
+        let mut replace_string_val = String::new();
+        if let Some(ParamValue::Str(string)) = replace_string {
+            replace_string_val = string.clone();
+        }
+        if !match_string_val.is_empty() && !replace_string_val.is_empty() {
+            replace_line_entries.push(ReplaceLineEntry::new(&match_string_val, &replace_string_val, false));
+        }
+    }
+    else if let Some(ParamValue::Array(array)) = param {
+        // cope with multiple items as an array
+        for item in array {
+            if let ParamValue::Map(map) = item {
+                let match_string = map.get("matchString");
+                let mut match_string_val = String::new();
+                if let Some(ParamValue::Str(string)) = match_string {
+                    match_string_val = string.clone();
+                }
+                let replace_string = map.get("replaceString");
+                let mut replace_string_val = String::new();
+                if let Some(ParamValue::Str(string)) = replace_string {
+                    replace_string_val = string.clone();
+                }
+                if !match_string_val.is_empty() && !replace_string_val.is_empty() {
+                    replace_line_entries.push(ReplaceLineEntry::new(&match_string_val, &replace_string_val, false));
+                }
+            }
+        }
+
+    }
+
+    return replace_line_entries;
 }

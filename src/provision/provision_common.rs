@@ -38,6 +38,14 @@ impl fmt::Display for ProvisionActionType {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy)]
+pub enum ProvisionResponseWaitType {
+    ReturnImmediatelyAfterAPIRequest,
+    WaitForResourceCreationOrModification, // wait for an IP address to exist
+    WaitForResourceReady // wait for the resource to actually be useable...
+}
+
 #[derive(Clone, Debug)]
 pub enum ProvisionActionResult {
     ErrorNotConfigured(String),
