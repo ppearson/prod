@@ -55,6 +55,9 @@ impl ProvisionParams {
         if extension_lower == "txt" {
             return ProvisionParams::from_file_txt(path);
         }
+        else if extension_lower == "yaml" {
+            // TODO:...
+        }
 
         return Err(FileLoadError::CustomError("Unknown file type.".to_string()))
     }
@@ -74,7 +77,7 @@ impl ProvisionParams {
             let line = line.trim();
 
             // ignore empty lines and comments
-            if line.len() == 0 || line.starts_with('#') {
+            if line.is_empty() || line.starts_with('#') {
                 continue;
             }
 
@@ -85,7 +88,7 @@ impl ProvisionParams {
 
             let string_pairs: Vec<&str> = line.split(':').collect();
             if string_pairs.len() != 2 {
-                eprintln!("Unexpected line 2 in .txt file...");
+                eprintln!("Unexpected line in .txt file...");
                 continue;
             }
 

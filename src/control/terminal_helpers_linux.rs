@@ -55,8 +55,8 @@ fn split_once(string: &str) -> Option<(String, String)> {
 
 fn extract_contents_from_brackets(string: &str) -> Option<Vec<String>> {
     // make sure we have matched pairs first.
-    let count_open = string.matches("(").count();
-    let count_close = string.matches(")").count();
+    let count_open = string.matches('(').count();
+    let count_close = string.matches(')').count();
     if count_open == 0 || count_open != count_close {
         return None;
     }

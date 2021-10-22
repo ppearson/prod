@@ -63,7 +63,7 @@ impl From<Yaml> for ParamValue {
         match item {
             Yaml::Boolean(v) => ParamValue::Bool(v),
             Yaml::Integer(v) => ParamValue::Int(v as i32),
-            Yaml::String(v) => ParamValue::Str(v.to_string()),
+            Yaml::String(v) => ParamValue::Str(v),
             Yaml::Array(v) => {
                 let mut new_vec = Vec::with_capacity(v.len());
                 for it in v {
@@ -151,7 +151,7 @@ impl Params {
             _ => default.to_string()
         };
 
-        val.to_string()
+        val
     }
 
     pub fn get_value_as_bool(&self, key: &str, default: bool) -> bool {

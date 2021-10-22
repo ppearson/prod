@@ -88,7 +88,7 @@ impl ActionResultValues {
             _ => default.to_string()
         };
 
-        val.to_string()
+        val
     }
 
     pub fn get_value_as_bool(&self, key: &str, default: bool) -> bool {

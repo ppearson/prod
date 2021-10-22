@@ -41,7 +41,7 @@ pub struct SSHControl {
 
 impl SSHControl {
     pub fn new(session: Session) -> SSHControl {
-        SSHControl { session: session, prev_std_out: String::new(), prev_std_err: String::new(),
+        SSHControl { session, prev_std_out: String::new(), prev_std_err: String::new(),
                      shell_channel: None, have_shell_session: false }
     }
 

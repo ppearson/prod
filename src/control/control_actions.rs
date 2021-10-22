@@ -36,6 +36,7 @@ pub enum ControlActionType {
     SystemCtl,
     Firewall,
     EditFile,
+    CopyPath,
 }
 
 impl fmt::Display for ControlActionType {
@@ -49,6 +50,7 @@ impl fmt::Display for ControlActionType {
             ControlActionType::SystemCtl        => write!(f, "systemCtl"),
             ControlActionType::Firewall         => write!(f, "firewall"),
             ControlActionType::EditFile         => write!(f, "editFile"),
+            ControlActionType::CopyPath         => write!(f, "copyPath"),
         }
     }
 }
@@ -127,7 +129,7 @@ impl ControlActions {
         let mut control_actions = ControlActions::new();
 
         let file_open_res = std::fs::File::open(path);
-        if let Some(mut file) = file_open_res.ok() {
+        if let Ok(mut file) = file_open_res {
             let mut yaml_content = String::new();
 
             let read_from_string_res = file.read_to_string(&mut yaml_content);
@@ -207,6 +209,7 @@ impl ControlActions {
             "systemCtl" =>          ControlActionType::SystemCtl,
             "firewall" =>           ControlActionType::Firewall,
             "editFile" =>           ControlActionType::EditFile,
+            "copyPath" =>           ControlActionType::CopyPath,
             _ =>                    ControlActionType::Unrecognised
         };
 
@@ -269,6 +272,10 @@ pub trait ActionProvider {
     }
 
     fn edit_file(&self, _connection: &mut ControlConnection, _params: &ControlAction) -> ActionResult {
+        return ActionResult::NotImplemented;
+    }
+
+    fn copy_path(&self, _connection: &mut ControlConnection, _params: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 

@@ -170,6 +170,9 @@ impl ControlManager {
             else if action.action == ControlActionType::EditFile {
                 provider.edit_file(&mut connection, &action);
             }
+            else if action.action == ControlActionType::CopyPath {
+                provider.copy_path(&mut connection, &action);
+            }
         }
     }
 }

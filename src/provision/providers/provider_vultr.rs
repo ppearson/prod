@@ -139,11 +139,11 @@ impl ProvisionProvider for ProviderVultr {
                     // server returned an error code we weren't expecting...
                     match code {
                         401 => {
-                            eprintln!("Error: authentication error with Vultr API: {}", response.into_string().unwrap().clone());
+                            eprintln!("Error: authentication error with Vultr API: {}", response.into_string().unwrap());
                             return ProvisionActionResult::ErrorAuthenticationIssue("".to_string());
                         },
                         404 => {
-                            eprintln!("Error: Not found response from Vultr API: {}", response.into_string().unwrap().clone());
+                            eprintln!("Error: Not found response from Vultr API: {}", response.into_string().unwrap());
                             return ProvisionActionResult::Failed("".to_string());
                         }
                         _ => {
@@ -275,8 +275,8 @@ impl ProviderVultr {
             .set("Authorization", &format!("Bearer {}", self.vultr_api_key))
             .call();
 
-        if get_instance_response.is_err() {
-            let resp_string = get_instance_response.unwrap().into_string().unwrap();
+        if let Err(error) = get_instance_response {
+            let resp_string = error.to_string();
             eprintln!("Error parsing json response from Vultr.com for get instance call: {}", resp_string);
             return Err(ProvisionActionResult::Failed("".to_string()));
         }

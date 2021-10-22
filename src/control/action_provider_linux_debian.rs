@@ -19,6 +19,7 @@ use super::control_actions::{ActionProvider, ActionResult, ControlAction};
 use super::control_common::{ControlConnection};
 use super::terminal_helpers_linux;
 
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::io::prelude::*;
 
@@ -137,7 +138,7 @@ impl ActionProvider for AProviderLinuxDebian {
         let packages_string;
         if let Some(package) = params.params.get_string_value("package") {
             // single package for convenience...
-            packages_string = package.to_string();
+            packages_string = package;
         }
         else if params.params.has_value("packages") {
             let packages = params.params.get_values_as_vec_of_strings("packages");
@@ -205,12 +206,6 @@ impl ActionProvider for AProviderLinuxDebian {
             return ActionResult::InvalidParams;
         }
 
-        // check we have stuff to actually do
-        if !params.params.has_value("replaceLine") {
-            eprintln!("Error: editFile Control Action had no items to perform...");
-            return ActionResult::InvalidParams;
-        }
-
         let replace_line_items = extract_replace_line_entry_items_from_params_map(&params.params, "replaceLine");
         if replace_line_items.is_empty() {
             eprintln!("Error: editFile Control Action had no items to perform...");
@@ -231,7 +226,6 @@ impl ActionProvider for AProviderLinuxDebian {
         connection.conn.send_command(&stat_command);
 
         let stat_response = connection.conn.prev_std_out.clone();
- //       println!("Stat response: {}", stat_response);
         // get the details from the stat call...
         let stat_details = terminal_helpers_linux::extract_details_from_stat_output(&stat_response);
 
@@ -257,9 +251,23 @@ impl ActionProvider for AProviderLinuxDebian {
             let mut have_replaced = false;
 
             for replace_item in &replace_line_items {
-                if line.contains(&replace_item.match_string) {
-                    new_file_contents_lines.push(replace_item.replace_string.clone());
-                    have_replaced = true;
+                if replace_item.match_type == ReplaceLineMatchType::Contains {
+                    if line.contains(&replace_item.match_string) {
+                        new_file_contents_lines.push(replace_item.replace_string.clone());
+                        have_replaced = true;
+                    }
+                }
+                else if replace_item.match_type == ReplaceLineMatchType::StartsWith {
+                    if line.starts_with(&replace_item.match_string) {
+                        new_file_contents_lines.push(replace_item.replace_string.clone());
+                        have_replaced = true;
+                    }
+                }
+                else if replace_item.match_type == ReplaceLineMatchType::EndsWith {
+                    if line.ends_with(&replace_item.match_string) {
+                        new_file_contents_lines.push(replace_item.replace_string.clone());
+                        have_replaced = true;
+                    }
                 }
             }
 
@@ -289,6 +297,44 @@ impl ActionProvider for AProviderLinuxDebian {
 
         return ActionResult::Success;
     }
+
+    fn copy_path(&self, connection: &mut ControlConnection, params: &ControlAction) -> ActionResult {
+        let source_path = params.params.get_string_value("sourcePath");
+        if source_path.is_none() {
+            return ActionResult::InvalidParams;
+        }
+        let source_path = source_path.unwrap();
+
+        let dest_path = params.params.get_string_value("destPath");
+        if dest_path.is_none() {
+            return ActionResult::InvalidParams;
+        }
+        let dest_path = dest_path.unwrap();
+
+        let recursive = params.params.get_value_as_bool("recursive", false);
+        let update = params.params.get_value_as_bool("update", false);
+
+        let mut option_flags = String::new();
+        if recursive {
+            option_flags.push_str("-R");
+        }
+        if update {
+            option_flags.push_str(" -u");
+        }
+        option_flags = option_flags.trim().to_string();
+
+        let cp_command = format!(" cp {} {} {}", option_flags, source_path, dest_path);
+        connection.conn.send_command(&cp_command);
+
+        return ActionResult::Success;
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum ReplaceLineMatchType {
+    Contains,
+    StartsWith,
+    EndsWith
 }
 
 struct ReplaceLineEntry {
@@ -296,58 +342,66 @@ struct ReplaceLineEntry {
     pub replace_string:      String,
     pub report_failure:      bool,
     pub replaced:            bool,
+    pub match_type:          ReplaceLineMatchType,
 }
 
 impl ReplaceLineEntry {
-    pub fn new(match_string: &str, replace_string: &str, report_failure: bool) -> ReplaceLineEntry {
+    pub fn new(match_string: &str, replace_string: &str, report_failure: bool, match_type: ReplaceLineMatchType) -> ReplaceLineEntry {
         ReplaceLineEntry { match_string: match_string.to_string(), replace_string: replace_string.to_string(),
-             report_failure: report_failure, replaced: false }
+             report_failure, replaced: false, match_type }
     }
 }
 
 fn extract_replace_line_entry_items_from_params_map(params: &Params, key: &str) -> Vec<ReplaceLineEntry> {
     let mut replace_line_entries = Vec::with_capacity(0);
 
-    // TODO: simplify this, and reduce code duplication...
-
     let param = params.get_raw_value(key);
     if let Some(ParamValue::Map(map)) = param {
         // cope with single items inline as map...
-        let match_string = map.get("matchString");
-        let mut match_string_val = String::new();
-        if let Some(ParamValue::Str(string)) = match_string {
-            match_string_val = string.clone();
-        }
-        let replace_string = map.get("replaceString");
-        let mut replace_string_val = String::new();
-        if let Some(ParamValue::Str(string)) = replace_string {
-            replace_string_val = string.clone();
-        }
-        if !match_string_val.is_empty() && !replace_string_val.is_empty() {
-            replace_line_entries.push(ReplaceLineEntry::new(&match_string_val, &replace_string_val, false));
+        if let Some(entry) = process_replace_line_entry(&map) {
+            replace_line_entries.push(entry);
         }
     }
     else if let Some(ParamValue::Array(array)) = param {
         // cope with multiple items as an array
         for item in array {
             if let ParamValue::Map(map) = item {
-                let match_string = map.get("matchString");
-                let mut match_string_val = String::new();
-                if let Some(ParamValue::Str(string)) = match_string {
-                    match_string_val = string.clone();
-                }
-                let replace_string = map.get("replaceString");
-                let mut replace_string_val = String::new();
-                if let Some(ParamValue::Str(string)) = replace_string {
-                    replace_string_val = string.clone();
-                }
-                if !match_string_val.is_empty() && !replace_string_val.is_empty() {
-                    replace_line_entries.push(ReplaceLineEntry::new(&match_string_val, &replace_string_val, false));
+                if let Some(entry) = process_replace_line_entry(&map) {
+                    replace_line_entries.push(entry);
                 }
             }
         }
-
     }
 
     return replace_line_entries;
+}
+
+fn process_replace_line_entry(entry: &BTreeMap<String, ParamValue>) -> Option<ReplaceLineEntry> {
+    let match_string = entry.get("matchString");
+    let mut match_string_val = String::new();
+    if let Some(ParamValue::Str(string)) = match_string {
+        match_string_val = string.clone();
+    }
+    let replace_string = entry.get("replaceString");
+    let mut replace_string_val = String::new();
+    if let Some(ParamValue::Str(string)) = replace_string {
+        replace_string_val = string.clone();
+    }
+    
+    let match_type = match entry.get("type") {
+        Some(ParamValue::Str(str)) => {
+            match str.as_str() {
+                "contains" => ReplaceLineMatchType::Contains,
+                "startsWith" => ReplaceLineMatchType::StartsWith,
+                "endsWith" => ReplaceLineMatchType::EndsWith,
+                _ => ReplaceLineMatchType::Contains
+            }
+        },
+        _ => ReplaceLineMatchType::Contains
+    };
+    if !match_string_val.is_empty() && !replace_string_val.is_empty() {
+        return Some(ReplaceLineEntry::new(&match_string_val, &replace_string_val, false, match_type));
+    }
+
+    return None;
 }

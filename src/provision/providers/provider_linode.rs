@@ -139,23 +139,23 @@ impl ProvisionProvider for ProviderLinode {
                     // server returned an error code we weren't expecting...
                     match code {
                         400 => {
-                            eprintln!("Error: Bad request 400 error returned by Linode API: {}", response.into_string().unwrap().clone());
+                            eprintln!("Error: Bad request 400 error returned by Linode API: {}", response.into_string().unwrap());
                             eprintln!("Check that instance label does not exist already for an existing linode instance node.");
                             return ProvisionActionResult::Failed("".to_string());
                         }
                         401 => {
-                            eprintln!("Error: authentication error with Linode API: {}", response.into_string().unwrap().clone());
+                            eprintln!("Error: authentication error with Linode API: {}", response.into_string().unwrap());
                             return ProvisionActionResult::ErrorAuthenticationIssue("".to_string());
                         },
                         404 => {
-                            eprintln!("Error: 404 Not found response received from Linode API: {}", response.into_string().unwrap().clone());
+                            eprintln!("Error: 404 Not found response received from Linode API: {}", response.into_string().unwrap());
                             return ProvisionActionResult::Failed("".to_string());
                         }
                         _ => {
                             
                         }
                     }
-                    eprintln!("Error creating instance0: code: {}, resp: {:?}", code, response.into_string().unwrap().clone());
+                    eprintln!("Error creating instance0: code: {}, resp: {:?}", code, response.into_string().unwrap());
                 },
                 Some(e) => {
                     eprintln!("Error creating instance1: {:?}", e);
@@ -282,8 +282,8 @@ impl ProviderLinode {
             .set("Authorization", &format!("Bearer {}", self.linode_api_key))
             .call();
 
-        if get_instance_response.is_err() {
-            let resp_string = get_instance_response.unwrap().into_string().unwrap();
+        if let Err(error) = get_instance_response {
+            let resp_string = error.to_string();
             eprintln!("Error parsing json response from linode.com for get instance call: {}", resp_string);
             return Err(ProvisionActionResult::Failed("".to_string()));
         }

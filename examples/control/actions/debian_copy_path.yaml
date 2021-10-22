@@ -1,0 +1,9 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - copyPath:
+    sourcePath: /home/peter/src_file.txt
+    destPath: /home/peter/dst_file.txt
+

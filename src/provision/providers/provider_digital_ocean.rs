@@ -147,11 +147,11 @@ impl ProvisionProvider for ProviderDigitalOcean {
                     // server returned an error code we weren't expecting...
                     match code {
                         401 => {
-                            eprintln!("Error: authentication error with Digital Ocean API: {}", response.into_string().unwrap().clone());
+                            eprintln!("Error: authentication error with Digital Ocean API: {}", response.into_string().unwrap());
                             return ProvisionActionResult::ErrorAuthenticationIssue("".to_string());
                         },
                         404 => {
-                            eprintln!("Error: Not found response from Digital Ocean API: {}", response.into_string().unwrap().clone());
+                            eprintln!("Error: Not found response from Digital Ocean API: {}", response.into_string().unwrap());
                             return ProvisionActionResult::Failed("".to_string());
                         }
                         _ => {
