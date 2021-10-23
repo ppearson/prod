@@ -1,0 +1,25 @@
+---
+ provider: linux_debian
+ host: localhost
+ user: $PROMPT
+ actions:
+ - editFile:
+    backup: true
+    filepath: "/home/peter/test_jail1.conf"
+    insertLine:
+      position: below
+      matchString: '[sshd]'
+      insertString: 'enabled: true'
+      matchType: startsWith
+      onceOnly: true
+      reportFailure: false
+    replaceLine:
+      matchString: 'bantime  = 10m'
+      replaceString: 'bantime  = 420m'
+      matchType: startsWith
+      onceOnly: true
+      reportFailure: false
+
+
+
+

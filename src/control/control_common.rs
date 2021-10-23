@@ -14,7 +14,21 @@
 */
 #![allow(dead_code)]
 
+// #[cfg(feature = "ssh")]
+// mod internal {
+//     pub fn send_command() {}
+// }
+
+// #[cfg(not(feature = "ssh"))]
+// mod internal {
+//    pub fn send_command() {}
+// }
+
+// pub use internal::*;
+
 use ssh2::{Session, Channel};
+
+use std::path::Path;
 
 use std::io::{BufReader};
 use std::io::prelude::*;
@@ -89,7 +103,38 @@ impl SSHControl {
         }
     }
 
-    pub fn had_response(&self) -> bool {
+    pub fn had_command_response(&self) -> bool {
         return !self.prev_std_out.is_empty();
+    }
+
+    pub fn get_text_file_contents_via_scp(&self, filepath: &str) -> Result<String, ()> {
+        let (mut remote_file, _stat) = self.session.scp_recv(Path::new(&filepath)).unwrap();
+
+        let mut byte_contents = Vec::new();
+        remote_file.read_to_end(&mut byte_contents).unwrap();
+
+        // Close the channel and wait for the whole content to be tranferred
+        remote_file.send_eof().unwrap();
+        remote_file.wait_eof().unwrap();
+        remote_file.close().unwrap();
+        remote_file.wait_close().unwrap();
+
+        let string_contents = String::from_utf8_lossy(&byte_contents);
+
+        return Ok(string_contents.to_string());
+    }
+
+    pub fn send_text_file_contents_via_scp(&self, filepath: &str, mode: i32, contents: &str) -> Result<(), ()> {
+        let byte_contents = contents.as_bytes();
+
+        let mut remote_file = self.session.scp_send(Path::new(&filepath), mode, byte_contents.len() as u64, None).unwrap();
+        remote_file.write(byte_contents).unwrap();
+        // Close the channel and wait for the whole content to be tranferred
+        remote_file.send_eof().unwrap();
+        remote_file.wait_eof().unwrap();
+        remote_file.close().unwrap();
+        remote_file.wait_close().unwrap();
+        
+        return Ok(());
     }
 }

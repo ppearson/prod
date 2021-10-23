@@ -20,8 +20,6 @@ use super::control_common::{ControlConnection};
 use super::terminal_helpers_linux;
 
 use std::collections::BTreeMap;
-use std::path::Path;
-use std::io::prelude::*;
 
 use rpassword::read_password;
 
@@ -73,7 +71,7 @@ impl ActionProvider for AProviderLinuxDebian {
         connection.conn.send_command(&useradd_full_command);
 
         // check response is nothing...
-        if connection.conn.had_response() {
+        if connection.conn.had_command_response() {
             return ActionResult::Failed("Unexpected response from useradd command.".to_string());
         }
 
@@ -96,7 +94,7 @@ impl ActionProvider for AProviderLinuxDebian {
             }
         }
 
-        eprintln!("Added user okay.");
+//        eprintln!("Added user okay.");
 
         return ActionResult::Success;
     }
@@ -152,6 +150,30 @@ impl ActionProvider for AProviderLinuxDebian {
             return ActionResult::InvalidParams;
         }
 
+        // with many providers (Linode and Vultr), apt-get runs automatically just after the instance first starts,
+        // so we can't run apt-get manually, as the lock file is locked, so wait until apt-get has stopped running
+        // by default... 
+        let wait_for_apt_get_lockfile = params.params.get_value_as_bool("waitForAptGet", true);
+        if wait_for_apt_get_lockfile {
+            let mut try_count = 0;
+            while try_count < 20 {
+                connection.conn.send_command(" pidof apt-get");
+
+                if connection.conn.prev_std_out.is_empty() {
+                    // it's likely no longer running, so we can continue...
+                    break;
+                }
+
+                // TODO: only print this once eventually, but might be useful like this for the moment...
+                println!("Waiting for existing apt-get to finish before installing packages...");
+
+                // sleep a bit to give things a chance...
+                std::thread::sleep(std::time::Duration::from_secs(20));
+
+                try_count += 1;
+            }
+        }
+
         let apt_get_command = format!(" apt-get -y install {}", packages_string);
         connection.conn.send_command(&apt_get_command);
 
@@ -200,6 +222,7 @@ impl ActionProvider for AProviderLinuxDebian {
         return ActionResult::Success;
     }
 
+    // TODO: this is pretty nasty and hacky, but works for all cases I want so far...
     fn edit_file(&self, connection: &mut ControlConnection, params: &ControlAction) -> ActionResult {
         let filepath = params.params.get_string_value("filepath");
         if filepath.is_none() {
@@ -207,7 +230,8 @@ impl ActionProvider for AProviderLinuxDebian {
         }
 
         let replace_line_items = extract_replace_line_entry_items_from_params_map(&params.params, "replaceLine");
-        if replace_line_items.is_empty() {
+        let insert_line_items = extract_insert_line_entry_items_from_params_map(&params.params, "insertLine");
+        if replace_line_items.is_empty() && insert_line_items.is_empty() {
             eprintln!("Error: editFile Control Action had no items to perform...");
             return ActionResult::InvalidParams;
         }
@@ -228,72 +252,98 @@ impl ActionProvider for AProviderLinuxDebian {
         let stat_response = connection.conn.prev_std_out.clone();
         // get the details from the stat call...
         let stat_details = terminal_helpers_linux::extract_details_from_stat_output(&stat_response);
+        let stat_details = stat_details.unwrap();
 
         // download the file
-        let (mut remote_file, _stat) = connection.conn.session.scp_recv(Path::new(&filepath)).unwrap();
-
-        let mut contents = Vec::new();
-        remote_file.read_to_end(&mut contents).unwrap();
-
-        // Close the channel and wait for the whole content to be tranferred
-        remote_file.send_eof().unwrap();
-        remote_file.wait_eof().unwrap();
-        remote_file.close().unwrap();
-        remote_file.wait_close().unwrap();
-
-        let string_contents = String::from_utf8_lossy(&contents);
+        let string_contents = connection.conn.get_text_file_contents_via_scp(&filepath).unwrap();
         let file_contents_lines = string_contents.lines();
 
-        // brute force replacement...
+        // brute force replacement - can optimise this or condense it, maybe both,
+        // but just get it working for the moment...
+
+        let item_matches_closure = |match_type : &FileEditMatchType, match_string: &str, line: &str| -> bool {
+            if *match_type == FileEditMatchType::Contains {
+                if line.contains(match_string) {
+                    return true;
+                }
+            }
+            else if *match_type == FileEditMatchType::Matches {
+                if line == match_string {
+                    return true;
+                }
+            }
+            else if *match_type == FileEditMatchType::StartsWith {
+                if line.starts_with(match_string) {
+                    return true;
+                }
+            }
+            else if *match_type == FileEditMatchType::EndsWith {
+                if line.ends_with(match_string) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        // this is disgusting, but can't be bothered with an enum...
+        // TODO: also, this is going to be last-wins for any situation where multiple
+        //       rules match a single line, but hopefully that won't happen for current use-cases...
+        //       (clearly possible in theory though...)
+        let mut insert_type = String::new();
+        let mut insert_string = String::new();
 
         let mut new_file_contents_lines = Vec::new();
         for line in file_contents_lines {
             let mut have_replaced = false;
+            
+            insert_type.clear();
+            insert_string.clear();
+
+            // TODO: it's ambiguous what we should do when both an insert item and replace item
+            //       might match a line, but let's just ignore handling that situation for the moment,
+            //       and assume params will be set exclusively for each...
+
+            for insert_item in &insert_line_items {
+                if item_matches_closure(&insert_item.match_type, &insert_item.match_string, &line) {
+                    insert_type = match insert_item.position_type {
+                        InsertLinePositionType::Above => "A".to_string(),
+                        InsertLinePositionType::Below => "B".to_string()
+                    };
+                    insert_string = insert_item.insert_string.clone();
+                }
+            }
 
             for replace_item in &replace_line_items {
-                if replace_item.match_type == ReplaceLineMatchType::Contains {
-                    if line.contains(&replace_item.match_string) {
-                        new_file_contents_lines.push(replace_item.replace_string.clone());
-                        have_replaced = true;
-                    }
-                }
-                else if replace_item.match_type == ReplaceLineMatchType::StartsWith {
-                    if line.starts_with(&replace_item.match_string) {
-                        new_file_contents_lines.push(replace_item.replace_string.clone());
-                        have_replaced = true;
-                    }
-                }
-                else if replace_item.match_type == ReplaceLineMatchType::EndsWith {
-                    if line.ends_with(&replace_item.match_string) {
-                        new_file_contents_lines.push(replace_item.replace_string.clone());
-                        have_replaced = true;
-                    }
+                if item_matches_closure(&replace_item.match_type, &replace_item.match_string, &line) {
+                    new_file_contents_lines.push(replace_item.replace_string.clone());
+                    have_replaced = true;
                 }
             }
 
             if !have_replaced {
+                // as mentioned above, on the assumption there won't currently be replace AND insert for a single line...
+                if insert_type == "A" {
+                    new_file_contents_lines.push(insert_string.clone());
+                }
                 new_file_contents_lines.push(line.to_string());
+                if insert_type == "B" {
+                    new_file_contents_lines.push(insert_string.clone());
+                }
             }
         }
 
-        let new_file_contents_string = new_file_contents_lines.join("\n");
-        let byte_contents = new_file_contents_string.as_bytes();
-
-        // send the file back via upload
-
-        let stat_details = stat_details.unwrap();
+        // convert back to single string for entire file, and make sure we append a newline on the end...
+        let new_file_contents_string = new_file_contents_lines.join("\n") + "\n";
 
         let mode = i32::from_str_radix(&stat_details.0, 8).unwrap();
+        
+        let send_res = connection.conn.send_text_file_contents_via_scp(&filepath, mode, &new_file_contents_string);
+        if send_res.is_err() {
+            return ActionResult::Failed("".to_string());
+        }
 
-        let mut remote_file = connection.conn.session.scp_send(Path::new(&filepath), mode, byte_contents.len() as u64, None).unwrap();
-        remote_file.write(byte_contents).unwrap();
-        // Close the channel and wait for the whole content to be tranferred
-        remote_file.send_eof().unwrap();
-        remote_file.wait_eof().unwrap();
-        remote_file.close().unwrap();
-        remote_file.wait_close().unwrap();
-
-        // TODO: change user and group of file to cached value beforehand...
+        // TODO: change user and group of file to cached value from beforehand...
 
         return ActionResult::Success;
     }
@@ -330,9 +380,13 @@ impl ActionProvider for AProviderLinuxDebian {
     }
 }
 
+// TODO: these two sets of enums/structs and functions have some duplication - see if we can reduce that...
+//       extract_*_line_entry_items_from_params_map() in particular, could use closure?
+
 #[derive(Clone, Debug, PartialEq)]
-enum ReplaceLineMatchType {
+enum FileEditMatchType {
     Contains,
+    Matches,
     StartsWith,
     EndsWith
 }
@@ -342,11 +396,11 @@ struct ReplaceLineEntry {
     pub replace_string:      String,
     pub report_failure:      bool,
     pub replaced:            bool,
-    pub match_type:          ReplaceLineMatchType,
+    pub match_type:          FileEditMatchType,
 }
 
 impl ReplaceLineEntry {
-    pub fn new(match_string: &str, replace_string: &str, report_failure: bool, match_type: ReplaceLineMatchType) -> ReplaceLineEntry {
+    pub fn new(match_string: &str, replace_string: &str, report_failure: bool, match_type: FileEditMatchType) -> ReplaceLineEntry {
         ReplaceLineEntry { match_string: match_string.to_string(), replace_string: replace_string.to_string(),
              report_failure, replaced: false, match_type }
     }
@@ -388,19 +442,114 @@ fn process_replace_line_entry(entry: &BTreeMap<String, ParamValue>) -> Option<Re
         replace_string_val = string.clone();
     }
     
-    let match_type = match entry.get("type") {
+    let match_type = match entry.get("matchType") {
         Some(ParamValue::Str(str)) => {
             match str.as_str() {
-                "contains" => ReplaceLineMatchType::Contains,
-                "startsWith" => ReplaceLineMatchType::StartsWith,
-                "endsWith" => ReplaceLineMatchType::EndsWith,
-                _ => ReplaceLineMatchType::Contains
+                "contains" => FileEditMatchType::Contains,
+                "matches" => FileEditMatchType::Matches,
+                "startsWith" => FileEditMatchType::StartsWith,
+                "endsWith" => FileEditMatchType::EndsWith,
+                _ => FileEditMatchType::Contains
             }
         },
-        _ => ReplaceLineMatchType::Contains
+        _ => FileEditMatchType::Contains
     };
     if !match_string_val.is_empty() && !replace_string_val.is_empty() {
         return Some(ReplaceLineEntry::new(&match_string_val, &replace_string_val, false, match_type));
+    }
+
+    return None;
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum InsertLinePositionType {
+    Above,
+    Below,
+}
+
+struct InsertLineEntry {
+    pub position_type:       InsertLinePositionType,
+    pub match_string:        String,
+    pub insert_string:       String,
+    pub report_failure:      bool,
+    pub replaced:            bool,
+    pub match_type:          FileEditMatchType,
+}
+
+impl InsertLineEntry {
+    pub fn new(position_type: InsertLinePositionType, match_string: &str, insert_string: &str, report_failure: bool, match_type: FileEditMatchType) -> InsertLineEntry {
+        InsertLineEntry { position_type, match_string: match_string.to_string(), insert_string: insert_string.to_string(),
+             report_failure, replaced: false, match_type }
+    }
+}
+
+fn extract_insert_line_entry_items_from_params_map(params: &Params, key: &str) -> Vec<InsertLineEntry> {
+    let mut insert_line_entries = Vec::with_capacity(0);
+
+    let param = params.get_raw_value(key);
+    if let Some(ParamValue::Map(map)) = param {
+        // cope with single items inline as map...
+        if let Some(entry) = process_insert_line_entry(&map) {
+            insert_line_entries.push(entry);
+        }
+    }
+    else if let Some(ParamValue::Array(array)) = param {
+        // cope with multiple items as an array
+        for item in array {
+            if let ParamValue::Map(map) = item {
+                if let Some(entry) = process_insert_line_entry(&map) {
+                    insert_line_entries.push(entry);
+                }
+            }
+        }
+    }
+
+    return insert_line_entries;
+}
+
+fn process_insert_line_entry(entry: &BTreeMap<String, ParamValue>) -> Option<InsertLineEntry> {
+    let match_string = entry.get("matchString");
+    let mut match_string_val = String::new();
+    if let Some(ParamValue::Str(string)) = match_string {
+        match_string_val = string.clone();
+    }
+    let insert_string = entry.get("insertString");
+    let mut insert_string_val = String::new();
+    if let Some(ParamValue::Str(string)) = insert_string {
+        insert_string_val = string.clone();
+    }
+
+    let position_type = match entry.get("position") {
+        Some(ParamValue::Str(str)) => {
+            match str.as_str() {
+                "above" => InsertLinePositionType::Above,
+                "below" => InsertLinePositionType::Below,
+                _ => {
+                    eprintln!("Warning: unrecognised 'position' value for insertLine entry item. Setting to 'below'.");
+                    InsertLinePositionType::Below
+                }
+            }
+        },
+        _ => {
+            eprintln!("Warning: undefined 'position' value for insertLine entry item. Setting to 'below'.");
+            InsertLinePositionType::Below
+        }
+    };
+    
+    let match_type = match entry.get("matchType") {
+        Some(ParamValue::Str(str)) => {
+            match str.as_str() {
+                "contains" => FileEditMatchType::Contains,
+                "matches" => FileEditMatchType::Matches,
+                "startsWith" => FileEditMatchType::StartsWith,
+                "endsWith" => FileEditMatchType::EndsWith,
+                _ => FileEditMatchType::Contains
+            }
+        },
+        _ => FileEditMatchType::Contains
+    };
+    if !match_string_val.is_empty() && !insert_string_val.is_empty() {
+        return Some(InsertLineEntry::new(position_type, &match_string_val, &insert_string_val, false, match_type));
     }
 
     return None;
