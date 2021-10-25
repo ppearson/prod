@@ -153,7 +153,7 @@ impl ActionProvider for AProviderLinuxDebian {
         // with many providers (Linode and Vultr), apt-get runs automatically just after the instance first starts,
         // so we can't run apt-get manually, as the lock file is locked, so wait until apt-get has stopped running
         // by default... 
-        let wait_for_apt_get_lockfile = params.params.get_value_as_bool("waitForAptGet", true);
+        let wait_for_apt_get_lockfile = params.params.get_value_as_bool("waitForPMToFinish", true);
         if wait_for_apt_get_lockfile {
             let mut try_count = 0;
             while try_count < 20 {
@@ -229,8 +229,8 @@ impl ActionProvider for AProviderLinuxDebian {
             return ActionResult::InvalidParams;
         }
 
-        let replace_line_items = extract_replace_line_entry_items_from_params_map(&params.params, "replaceLine");
-        let insert_line_items = extract_insert_line_entry_items_from_params_map(&params.params, "insertLine");
+        let replace_line_items = extract_edit_line_entry_items(&params.params, "replaceLine", &process_replace_line_entry);
+        let insert_line_items = extract_edit_line_entry_items(&params.params, "insertLine", &process_insert_line_entry);
         if replace_line_items.is_empty() && insert_line_items.is_empty() {
             eprintln!("Error: editFile Control Action had no items to perform...");
             return ActionResult::InvalidParams;
@@ -381,7 +381,6 @@ impl ActionProvider for AProviderLinuxDebian {
 }
 
 // TODO: these two sets of enums/structs and functions have some duplication - see if we can reduce that...
-//       extract_*_line_entry_items_from_params_map() in particular, could use closure?
 
 #[derive(Clone, Debug, PartialEq)]
 enum FileEditMatchType {
@@ -406,13 +405,13 @@ impl ReplaceLineEntry {
     }
 }
 
-fn extract_replace_line_entry_items_from_params_map(params: &Params, key: &str) -> Vec<ReplaceLineEntry> {
+fn extract_edit_line_entry_items<T>(params: &Params, key: &str, fun: &dyn Fn(&BTreeMap<String, ParamValue>) -> Option<T>) -> Vec<T> {
     let mut replace_line_entries = Vec::with_capacity(0);
 
     let param = params.get_raw_value(key);
     if let Some(ParamValue::Map(map)) = param {
         // cope with single items inline as map...
-        if let Some(entry) = process_replace_line_entry(&map) {
+        if let Some(entry) = fun(&map) {
             replace_line_entries.push(entry);
         }
     }
@@ -420,7 +419,7 @@ fn extract_replace_line_entry_items_from_params_map(params: &Params, key: &str) 
         // cope with multiple items as an array
         for item in array {
             if let ParamValue::Map(map) = item {
-                if let Some(entry) = process_replace_line_entry(&map) {
+                if let Some(entry) = fun(&map) {
                     replace_line_entries.push(entry);
                 }
             }
@@ -428,6 +427,23 @@ fn extract_replace_line_entry_items_from_params_map(params: &Params, key: &str) 
     }
 
     return replace_line_entries;
+}
+
+fn get_replace_line_entry_match_type(entry: &BTreeMap<String, ParamValue>) -> FileEditMatchType {
+    let match_type = match entry.get("matchType") {
+        Some(ParamValue::Str(str)) => {
+            match str.as_str() {
+                "contains" => FileEditMatchType::Contains,
+                "matches" => FileEditMatchType::Matches,
+                "startsWith" => FileEditMatchType::StartsWith,
+                "endsWith" => FileEditMatchType::EndsWith,
+                _ => FileEditMatchType::Contains
+            }
+        },
+        _ => FileEditMatchType::Contains
+    };
+
+    return match_type;
 }
 
 fn process_replace_line_entry(entry: &BTreeMap<String, ParamValue>) -> Option<ReplaceLineEntry> {
@@ -442,18 +458,8 @@ fn process_replace_line_entry(entry: &BTreeMap<String, ParamValue>) -> Option<Re
         replace_string_val = string.clone();
     }
     
-    let match_type = match entry.get("matchType") {
-        Some(ParamValue::Str(str)) => {
-            match str.as_str() {
-                "contains" => FileEditMatchType::Contains,
-                "matches" => FileEditMatchType::Matches,
-                "startsWith" => FileEditMatchType::StartsWith,
-                "endsWith" => FileEditMatchType::EndsWith,
-                _ => FileEditMatchType::Contains
-            }
-        },
-        _ => FileEditMatchType::Contains
-    };
+    let match_type = get_replace_line_entry_match_type(entry);
+
     if !match_string_val.is_empty() && !replace_string_val.is_empty() {
         return Some(ReplaceLineEntry::new(&match_string_val, &replace_string_val, false, match_type));
     }
@@ -481,30 +487,6 @@ impl InsertLineEntry {
         InsertLineEntry { position_type, match_string: match_string.to_string(), insert_string: insert_string.to_string(),
              report_failure, replaced: false, match_type }
     }
-}
-
-fn extract_insert_line_entry_items_from_params_map(params: &Params, key: &str) -> Vec<InsertLineEntry> {
-    let mut insert_line_entries = Vec::with_capacity(0);
-
-    let param = params.get_raw_value(key);
-    if let Some(ParamValue::Map(map)) = param {
-        // cope with single items inline as map...
-        if let Some(entry) = process_insert_line_entry(&map) {
-            insert_line_entries.push(entry);
-        }
-    }
-    else if let Some(ParamValue::Array(array)) = param {
-        // cope with multiple items as an array
-        for item in array {
-            if let ParamValue::Map(map) = item {
-                if let Some(entry) = process_insert_line_entry(&map) {
-                    insert_line_entries.push(entry);
-                }
-            }
-        }
-    }
-
-    return insert_line_entries;
 }
 
 fn process_insert_line_entry(entry: &BTreeMap<String, ParamValue>) -> Option<InsertLineEntry> {
@@ -536,18 +518,8 @@ fn process_insert_line_entry(entry: &BTreeMap<String, ParamValue>) -> Option<Ins
         }
     };
     
-    let match_type = match entry.get("matchType") {
-        Some(ParamValue::Str(str)) => {
-            match str.as_str() {
-                "contains" => FileEditMatchType::Contains,
-                "matches" => FileEditMatchType::Matches,
-                "startsWith" => FileEditMatchType::StartsWith,
-                "endsWith" => FileEditMatchType::EndsWith,
-                _ => FileEditMatchType::Contains
-            }
-        },
-        _ => FileEditMatchType::Contains
-    };
+    let match_type = get_replace_line_entry_match_type(entry);
+
     if !match_string_val.is_empty() && !insert_string_val.is_empty() {
         return Some(InsertLineEntry::new(position_type, &match_string_val, &insert_string_val, false, match_type));
     }

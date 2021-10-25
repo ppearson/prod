@@ -16,16 +16,17 @@
 #![allow(dead_code)]
 
 use ssh2::Session;
+use std::collections::BTreeMap;
 use std::io::prelude::*;
 use std::net::TcpStream;
 
 extern crate rpassword;
 use rpassword::read_password;
 
-use crate::control::control_actions::ControlActionType;
+use crate::control::control_actions::{ActionResult, ControlActionType};
 use crate::control::control_common::ControlConnection;
 
-use super::control_actions::{ControlActions, ActionProvider};
+use super::control_actions::{ControlAction, ControlActions, ActionProvider};
 
 use super::action_provider_linux_debian;
 
@@ -147,31 +148,48 @@ impl ControlManager {
         }
 
         let mut connection = ControlConnection::new(sess);
+/*
+        let closure = || provider.add_user(&mut connection, &actions.actions[0]);
+        let mut map : BTreeMap<ControlActionType, &dyn Fn(&mut ControlConnection, &ControlAction) -> ActionResult> = BTreeMap::new();
+        map.insert(ControlActionType::AddUser, &closure as &dyn Fn(_, _) -> _);
+*/
 
         eprintln!("Running actions...");
 
         for action in &actions.actions {
-            // TODO: much better (automatic - based off lookup) despatch than this...
-            if action.action == ControlActionType::AddUser {
-                provider.add_user(&mut connection, &action);
-            }
-            else if action.action == ControlActionType::CreateDirectory {
-                provider.create_directory(&mut connection, &action);
-            }
-            else if action.action == ControlActionType::PackagesInstall {
-                provider.install_packages(&mut connection, &action);
-            }
-            else if action.action == ControlActionType::SystemCtl {
-                provider.systemctrl(&mut connection, &action);
-            }
-            else if action.action == ControlActionType::Firewall {
-                provider.firewall(&mut connection, &action);
-            }
-            else if action.action == ControlActionType::EditFile {
-                provider.edit_file(&mut connection, &action);
-            }
-            else if action.action == ControlActionType::CopyPath {
-                provider.copy_path(&mut connection, &action);
+            // TODO: Better (automatic - based off lookup) despatch than this...
+            //       Although it's not clear how to easily do that (see above attempt)...
+
+            let result = match action.action {
+                ControlActionType::AddUser => {
+                    provider.add_user(&mut connection, &action)
+                },
+                ControlActionType::CreateDirectory => {
+                    provider.create_directory(&mut connection, &action)
+                },
+                ControlActionType::PackagesInstall => {
+                    provider.install_packages(&mut connection, &action)
+                },
+                ControlActionType::SystemCtl => {
+                    provider.systemctrl(&mut connection, &action)
+                },
+                ControlActionType::Firewall => {
+                    provider.firewall(&mut connection, &action)
+                },
+                ControlActionType::EditFile => {
+                    provider.edit_file(&mut connection, &action)
+                },
+                ControlActionType::CopyPath => {
+                    provider.copy_path(&mut connection, &action)
+                },
+                ControlActionType::NotSet | ControlActionType::Unrecognised => {
+                   ActionResult::Failed("Error".to_string())
+                }
+            };
+
+            if result != ActionResult::Success {
+                eprintln!("Error running action...");
+                break;
             }
         }
     }

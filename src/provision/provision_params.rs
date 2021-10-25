@@ -31,12 +31,12 @@ pub struct ProvisionParams {
 
 impl fmt::Display for ProvisionParams {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Provider: {}, Action: {}\n", self.provider, self.action)?;
-        write!(f, " params ({}): {{\n", self.values.len())?;
+        writeln!(f, "Provider: {}, Action: {}", self.provider, self.action)?;
+        writeln!(f, " params ({}): {{", self.values.len())?;
         for (param, value) in &self.values {
-            write!(f, "  {}: {}\n", param, value)?
+            writeln!(f, "  {}: {}", param, value)?
         }
-        write!(f, " }}\n")
+        writeln!(f, " }}")
     }
 }
 
@@ -127,7 +127,7 @@ impl ProvisionParams {
             _ => default.to_string()
         };
 
-        val.to_string()
+        val
     }
 
     pub fn get_value_as_bool(&self, key: &str, default: bool) -> bool {

@@ -64,11 +64,11 @@ pub struct ActionResultValues {
 
 impl fmt::Display for ActionResultValues {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, " provision action results ({}): {{\n", self.values.len())?;
+        writeln!(f, " provision action results ({}): {{", self.values.len())?;
         for (param, value) in &self.values {
-            write!(f, "  {}: {}\n", param, value)?
+            writeln!(f, "  {}: {}", param, value)?
         }
-        write!(f, " }}\n")
+        writeln!(f, " }}")
     }
 }
 

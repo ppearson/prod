@@ -15,6 +15,7 @@
 
 #![allow(dead_code)]
 
+use std::cmp::Ordering;
 use std::fmt;
 use std::io::{BufReader, Read};
 use std::path::{Path};
@@ -25,7 +26,7 @@ use crate::common::{FileLoadError};
 use crate::params::{ParamValue, Params};
 use super::control_common::{ControlConnection};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[derive(Copy)]
 pub enum ControlActionType {
     NotSet,
@@ -54,8 +55,17 @@ impl fmt::Display for ControlActionType {
         }
     }
 }
+/*
+impl Ord for ControlActionType {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let self_u8 = self as u8;
+        let other_u8 = other as u8;
+        self_u8.cmp(&other_u8)
+    }
+}
+*/
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ActionResult {
     NotImplemented,
     InvalidParams,
@@ -82,12 +92,12 @@ pub struct ControlAction {
 
 impl fmt::Display for ControlActions {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Provider: {}, Host: {}, User: {},\n", self.provider, self.host, self.user)?;
-        write!(f, " actions ({}): {{\n", self.actions.len())?;
+        writeln!(f, "Provider: {}, Host: {}, User: {},", self.provider, self.host, self.user)?;
+        writeln!(f, " actions ({}): {{", self.actions.len())?;
         for action in &self.actions {
             write!(f, "  {}", action)?
         }
-        write!(f, " }}\n")
+        writeln!(f, " }}")
     }
 }
 
@@ -137,7 +147,7 @@ impl ControlActions {
             if read_from_string_res.is_ok() {
                 let yaml_load_res = YamlLoader::load_from_str(&yaml_content);
                 if yaml_load_res.is_ok() {
-                    if let Some(document) = yaml_load_res.ok() {
+                    if let Ok(document) = yaml_load_res {
                         let doc: &Yaml = &document[0];
                         
                         if let yaml_rust::Yaml::Hash(ref hash) = doc {
@@ -230,11 +240,11 @@ impl ControlActions {
 
 impl fmt::Display for ControlAction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, " Action: {}, params ({}): {{\n", self.action, self.params.values.len())?;
+        writeln!(f, " Action: {}, params ({}): {{", self.action, self.params.values.len())?;
         for (param, value) in &self.params.values {
-            write!(f, "  {}: {}\n", param, value)?
+            writeln!(f, "  {}: {}", param, value)?
         }
-        write!(f, " }}\n")
+        writeln!(f, " }}")
     }
 }
 

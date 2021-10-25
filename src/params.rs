@@ -98,9 +98,9 @@ pub struct Params {
 
 impl fmt::Display for Params {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Params: ({}) {{\n", self.values.len())?;
+        writeln!(f, "Params: ({}) {{", self.values.len())?;
         for (key, val) in self.values.clone() {
-            write!(f, " {}: {}\n", key, val)?;
+            writeln!(f, " {}: {}", key, val)?;
         }
         write!(f, "}}")
     }
