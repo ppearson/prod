@@ -24,7 +24,7 @@ use yaml_rust::{Yaml, YamlLoader};
 
 use crate::common::{FileLoadError};
 use crate::params::{ParamValue, Params};
-use super::control_common::{ControlConnection};
+use super::control_common::{ControlSession};
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[derive(Copy)]
@@ -261,31 +261,31 @@ pub trait ActionProvider {
         return "".to_string();
     }
 
-    fn add_user(&self, _connection: &mut ControlConnection, _params: &ControlAction) -> ActionResult {
+    fn add_user(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 
-    fn create_directory(&self, _connection: &mut ControlConnection, _params: &ControlAction) -> ActionResult {
+    fn create_directory(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 
-    fn install_packages(&self, _connection: &mut ControlConnection, _params: &ControlAction) -> ActionResult {
+    fn install_packages(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 
-    fn systemctrl(&self, _connection: &mut ControlConnection, _params: &ControlAction) -> ActionResult {
+    fn systemctrl(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 
-    fn firewall(&self, _connection: &mut ControlConnection, _params: &ControlAction) -> ActionResult {
+    fn firewall(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 
-    fn edit_file(&self, _connection: &mut ControlConnection, _params: &ControlAction) -> ActionResult {
+    fn edit_file(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 
-    fn copy_path(&self, _connection: &mut ControlConnection, _params: &ControlAction) -> ActionResult {
+    fn copy_path(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 

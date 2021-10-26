@@ -15,16 +15,11 @@
 
 #![allow(dead_code)]
 
-use ssh2::Session;
-use std::collections::BTreeMap;
-use std::io::prelude::*;
-use std::net::TcpStream;
-
 extern crate rpassword;
 use rpassword::read_password;
 
 use crate::control::control_actions::{ActionResult, ControlActionType};
-use crate::control::control_common::ControlConnection;
+use crate::control::control_common::{ControlSession};
 
 use super::control_actions::{ControlAction, ControlActions, ActionProvider};
 
@@ -62,43 +57,41 @@ impl ControlManager {
         return None;
     }
 
-    pub fn run_command(&self, host: &str, command: &str) -> CommandResult {
-        println!("Connecting to host: {}...", host);
+    // pub fn run_command(&self, host: &str, command: &str) -> CommandResult {
+    //     println!("Connecting to host: {}...", host);
 
-        let host_target = format!("{}:22", host);
-        let tcp_connection = TcpStream::connect(&host_target);
-        if tcp_connection.is_err() {
-            return CommandResult::ErrorCantConnect("".to_string());
-        }
-        let tcp_connection = tcp_connection.unwrap();
-        let mut sess = Session::new().unwrap();
+    //     let host_target = format!("{}:22", host);
+    //     let tcp_connection = TcpStream::connect(&host_target);
+    //     if tcp_connection.is_err() {
+    //         return CommandResult::ErrorCantConnect("".to_string());
+    //     }
+    //     let tcp_connection = tcp_connection.unwrap();
+    //     let mut sess = Session::new().unwrap();
 
-        println!("Enter password:");
-        let password = read_password().unwrap();
+    //     println!("Enter password:");
+    //     let password = read_password().unwrap();
 
-        sess.set_tcp_stream(tcp_connection);
-        sess.handshake().unwrap();
-        let auth_res = sess.userauth_password("peter", &password);
-        if auth_res.is_err() {
-            return CommandResult::ErrorAuthenticationIssue(format!("{:?}", auth_res.err()));
-        }
+    //     sess.set_tcp_stream(tcp_connection);
+    //     sess.handshake().unwrap();
+    //     let auth_res = sess.userauth_password("peter", &password);
+    //     if auth_res.is_err() {
+    //         return CommandResult::ErrorAuthenticationIssue(format!("{:?}", auth_res.err()));
+    //     }
 
-        let mut channel = sess.channel_session().unwrap();
-        channel.exec(&command).unwrap();
-        let mut result_string = String::new();
-        channel.read_to_string(&mut result_string).unwrap();
+    //     let mut channel = sess.channel_session().unwrap();
+    //     channel.exec(&command).unwrap();
+    //     let mut result_string = String::new();
+    //     channel.read_to_string(&mut result_string).unwrap();
 
-        return CommandResult::CommandRunOkay(result_string);
-    }
+    //     return CommandResult::CommandRunOkay(result_string);
+    // }
 
     pub fn perform_actions(&self, actions: &ControlActions) {
-
         if actions.actions.is_empty() {
             eprintln!("Error: no actions specified.");
         }
 
         let provider = self.find_provider(&actions.provider);
-
         if provider.is_none() {
             eprintln!("Error: Can't find provider: '{}'.", actions.provider);
             return;
@@ -117,14 +110,7 @@ impl ControlManager {
         }
 
         // connect to host
-        let host_target = format!("{}:22", hostname);
-        let tcp_connection = TcpStream::connect(&host_target);
-        if tcp_connection.is_err() {
-            eprintln!("Error: Can't connect to host: '{}'.", host_target);
-            return;
-        }
-        let tcp_connection = tcp_connection.unwrap();
-        let mut sess = Session::new().unwrap();
+        let host_target = hostname.clone();
 
         let mut username = String::new();
         if actions.user.is_empty() || actions.user == "$PROMPT" {
@@ -139,15 +125,19 @@ impl ControlManager {
         println!("Enter password:");
         let password = read_password().unwrap();
 
-        sess.set_tcp_stream(tcp_connection);
-        sess.handshake().unwrap();
-        let auth_res = sess.userauth_password(&username, &password);
-        if auth_res.is_err() {
-            eprintln!("Error: Authentication failure with user: {}...", username);
+#[cfg(feature = "ssh")]
+        let connection = ControlSession::new_ssh(&host_target, &username, &password);
+
+#[cfg(not(feature = "ssh"))]
+        let connection = ControlSession::new_dummy_debug();
+
+        if let None = connection {
+            eprintln!("Error connecting to hostname...");
             return;
         }
+        let mut connection = connection.unwrap();
 
-        let mut connection = ControlConnection::new(sess);
+
 /*
         let closure = || provider.add_user(&mut connection, &actions.actions[0]);
         let mut map : BTreeMap<ControlActionType, &dyn Fn(&mut ControlConnection, &ControlAction) -> ActionResult> = BTreeMap::new();
@@ -156,9 +146,10 @@ impl ControlManager {
 
         eprintln!("Running actions...");
 
-        for action in &actions.actions {
+        for (count, action) in actions.actions.iter().enumerate() {
             // TODO: Better (automatic - based off lookup) despatch than this...
-            //       Although it's not clear how to easily do that (see above attempt)...
+            //       Although it's not clear how to easily do that (see above attempt), or if
+            //       there's actually a benefit to doing it that way...
 
             let result = match action.action {
                 ControlActionType::AddUser => {
@@ -183,15 +174,17 @@ impl ControlManager {
                     provider.copy_path(&mut connection, &action)
                 },
                 ControlActionType::NotSet | ControlActionType::Unrecognised => {
-                   ActionResult::Failed("Error".to_string())
+                   ActionResult::Failed("Invalid Action Type".to_string())
                 }
             };
 
             if result != ActionResult::Success {
-                eprintln!("Error running action...");
+                eprintln!("Error running action: {}, {}...", count, action.action);
                 break;
             }
         }
+
+        eprintln!("Successfully ran actions.");
     }
 }
 

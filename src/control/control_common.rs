@@ -14,6 +14,15 @@
 */
 #![allow(dead_code)]
 
+use super::control_connection::{ControlConnection, ControlConnectionDummyDebug};
+
+#[cfg(feature = "ssh")]
+use super::control_connection_ssh::{ControlConnectionSSH};
+
+#[cfg(feature = "ssh")]
+use ssh2::Session;
+use std::net::TcpStream;
+
 // #[cfg(feature = "ssh")]
 // mod internal {
 //     pub fn send_command() {}
@@ -26,115 +35,41 @@
 
 // pub use internal::*;
 
-use ssh2::{Session, Channel};
 
-use std::path::Path;
-
-use std::io::{BufReader};
-use std::io::prelude::*;
-
-pub struct ControlConnection {
-    pub conn:   SSHControl
+pub struct ControlSession {
+    pub conn:   Box<dyn ControlConnection>, 
 }
 
-impl ControlConnection {
-    pub fn new(session: Session) -> ControlConnection {
-        ControlConnection { conn: SSHControl::new(session) }
-    }
-}
+impl ControlSession {
 
-pub struct SSHControl {
-    pub session:        Session,
 
-    pub prev_std_out:   String,
-    pub prev_std_err:   String,
+    #[cfg(feature = "ssh")]
+    pub fn new_ssh(host_target: &str, username: &str, password: &str) -> Option<ControlSession> {
+        let ssh_host_target = format!("{}:{}", host_target, 22);
+        let tcp_connection = TcpStream::connect(&ssh_host_target);
+        if tcp_connection.is_err() {
+            eprintln!("Error: Can't connect to host: '{}'.", ssh_host_target);
+            return None;
+        }
+        let tcp_connection = tcp_connection.unwrap();
+        let mut sess = Session::new().unwrap();
 
-    shell_channel:      Option<Channel>,
-    have_shell_session: bool,
-}
-
-impl SSHControl {
-    pub fn new(session: Session) -> SSHControl {
-        SSHControl { session, prev_std_out: String::new(), prev_std_err: String::new(),
-                     shell_channel: None, have_shell_session: false }
-    }
-
-    pub fn send_command(&mut self, command: &str) {
-//        self.debug(command);
-        self.send_command_exec(command);
-//        self.send_command_shell(command);
-    }
-
-    fn debug(&mut self, command: &str) {
-        eprintln!("Command: '{}'", command);
-    }
-
-    fn send_command_exec(&mut self, command: &str) {
-        // Currently we spawn a new channel for each request, which isn't great...
-        let mut channel = self.session.channel_session().unwrap();
-
-        channel.exec(command).unwrap();
-
-        self.prev_std_out = String::new();
-        channel.read_to_string(&mut self.prev_std_out).unwrap();
-    }
-
-    fn send_command_shell(&mut self, command: &str) {
-        if !self.have_shell_session {
-            self.session.set_timeout(2000);
-            let mut channel = self.session.channel_session().unwrap();
-
-            channel.request_pty("xterm", None, None).unwrap();
-
-            channel.shell().unwrap();
-
-            self.shell_channel = Some(channel);
-            self.have_shell_session = true;
+        sess.set_tcp_stream(tcp_connection);
+        sess.handshake().unwrap();
+        let auth_res = sess.userauth_password(&username, &password);
+        if auth_res.is_err() {
+            eprintln!("Error: Authentication failure with user: {}...", username);
+            return None;
         }
 
-        let channel = self.shell_channel.as_mut().unwrap();
-        channel.write(command.as_bytes()).unwrap();
+        let ssh_connection = ControlConnectionSSH::new(sess);
 
-        let response = BufReader::new(channel.stream(0));
-        let mut response_lines = response.lines();
-
-        while let Some(Ok(line)) = response_lines.next() {
-            eprintln!("Resp: {}", line);
-        }
+        Some(ControlSession { conn: Box::new(ssh_connection) })
     }
 
-    pub fn had_command_response(&self) -> bool {
-        return !self.prev_std_out.is_empty();
-    }
-
-    pub fn get_text_file_contents_via_scp(&self, filepath: &str) -> Result<String, ()> {
-        let (mut remote_file, _stat) = self.session.scp_recv(Path::new(&filepath)).unwrap();
-
-        let mut byte_contents = Vec::new();
-        remote_file.read_to_end(&mut byte_contents).unwrap();
-
-        // Close the channel and wait for the whole content to be tranferred
-        remote_file.send_eof().unwrap();
-        remote_file.wait_eof().unwrap();
-        remote_file.close().unwrap();
-        remote_file.wait_close().unwrap();
-
-        let string_contents = String::from_utf8_lossy(&byte_contents);
-
-        return Ok(string_contents.to_string());
-    }
-
-    pub fn send_text_file_contents_via_scp(&self, filepath: &str, mode: i32, contents: &str) -> Result<(), ()> {
-        let byte_contents = contents.as_bytes();
-
-        let mut remote_file = self.session.scp_send(Path::new(&filepath), mode, byte_contents.len() as u64, None).unwrap();
-        remote_file.write(byte_contents).unwrap();
-        // Close the channel and wait for the whole content to be tranferred
-        remote_file.send_eof().unwrap();
-        remote_file.wait_eof().unwrap();
-        remote_file.close().unwrap();
-        remote_file.wait_close().unwrap();
-        
-        return Ok(());
+    pub fn new_dummy_debug() -> Option<ControlSession> {
+        let dummy_connection = ControlConnectionDummyDebug::new();
+        Some(ControlSession { conn: Box::new(dummy_connection) })
     }
 }
+

@@ -17,6 +17,11 @@ pub mod action_provider_linux_debian;
 
 pub mod control_actions;
 pub mod control_common;
+pub mod control_connection;
+
+#[cfg(feature = "ssh")]
+pub mod control_connection_ssh;
+
 pub mod control_manager;
 
 pub mod terminal_helpers_linux;

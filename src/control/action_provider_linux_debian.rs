@@ -16,7 +16,7 @@
 use crate::params::{ParamValue, Params};
 
 use super::control_actions::{ActionProvider, ActionResult, ControlAction};
-use super::control_common::{ControlConnection};
+use super::control_common::{ControlSession};
 use super::terminal_helpers_linux;
 
 use std::collections::BTreeMap;
@@ -38,7 +38,7 @@ impl ActionProvider for AProviderLinuxDebian {
         return "linux_debian".to_string();
     }
 
-    fn add_user(&self, connection: &mut ControlConnection, params: &ControlAction) -> ActionResult {
+    fn add_user(&self, connection: &mut ControlSession, params: &ControlAction) -> ActionResult {
         // validate params
         if !params.params.has_value("username") || !params.params.has_value("password") {
             return ActionResult::InvalidParams;
@@ -99,7 +99,7 @@ impl ActionProvider for AProviderLinuxDebian {
         return ActionResult::Success;
     }
 
-    fn create_directory(&self, connection: &mut ControlConnection, params: &ControlAction) -> ActionResult {
+    fn create_directory(&self, connection: &mut ControlSession, params: &ControlAction) -> ActionResult {
         // validate params
         if !params.params.has_value("path") {
             return ActionResult::InvalidParams;
@@ -129,7 +129,7 @@ impl ActionProvider for AProviderLinuxDebian {
         return ActionResult::Success;
     }
 
-    fn install_packages(&self, connection: &mut ControlConnection, params: &ControlAction) -> ActionResult {
+    fn install_packages(&self, connection: &mut ControlSession, params: &ControlAction) -> ActionResult {
         // use apt-get, because the commands for that will apparently be much more stable, compared to apt
         // which might change as it's designed to be more user-facing...
 
@@ -159,7 +159,7 @@ impl ActionProvider for AProviderLinuxDebian {
             while try_count < 20 {
                 connection.conn.send_command(" pidof apt-get");
 
-                if connection.conn.prev_std_out.is_empty() {
+                if !connection.conn.had_command_response() {
                     // it's likely no longer running, so we can continue...
                     break;
                 }
@@ -180,7 +180,7 @@ impl ActionProvider for AProviderLinuxDebian {
         return ActionResult::Success;
     }
 
-    fn systemctrl(&self, connection: &mut ControlConnection, params: &ControlAction) -> ActionResult {
+    fn systemctrl(&self, connection: &mut ControlSession, params: &ControlAction) -> ActionResult {
         // validate params
         if !params.params.has_value("action") || !params.params.has_value("service") {
             return ActionResult::InvalidParams;
@@ -196,7 +196,7 @@ impl ActionProvider for AProviderLinuxDebian {
         return ActionResult::Success;
     }
 
-    fn firewall(&self, connection: &mut ControlConnection, params: &ControlAction) -> ActionResult {
+    fn firewall(&self, connection: &mut ControlSession, params: &ControlAction) -> ActionResult {
         let firewall_type = params.params.get_string_value_with_default("type", "ufw");
         if firewall_type != "ufw" {
             // only support this type for the moment...
@@ -223,7 +223,7 @@ impl ActionProvider for AProviderLinuxDebian {
     }
 
     // TODO: this is pretty nasty and hacky, but works for all cases I want so far...
-    fn edit_file(&self, connection: &mut ControlConnection, params: &ControlAction) -> ActionResult {
+    fn edit_file(&self, connection: &mut ControlSession, params: &ControlAction) -> ActionResult {
         let filepath = params.params.get_string_value("filepath");
         if filepath.is_none() {
             return ActionResult::InvalidParams;
@@ -249,13 +249,16 @@ impl ActionProvider for AProviderLinuxDebian {
         let stat_command = format!(" stat {}", filepath);
         connection.conn.send_command(&stat_command);
 
-        let stat_response = connection.conn.prev_std_out.clone();
+        let stat_response = connection.conn.get_previous_stdout_response().to_string();
         // get the details from the stat call...
         let stat_details = terminal_helpers_linux::extract_details_from_stat_output(&stat_response);
-        let stat_details = stat_details.unwrap();
 
         // download the file
-        let string_contents = connection.conn.get_text_file_contents_via_scp(&filepath).unwrap();
+        let string_contents = connection.conn.get_text_file_contents(&filepath).unwrap();
+        if string_contents.is_empty() {
+            eprintln!("Error: remote file: {} has empty contents.", filepath);
+            return ActionResult::Failed("".to_string());
+        }
         let file_contents_lines = string_contents.lines();
 
         // brute force replacement - can optimise this or condense it, maybe both,
@@ -336,9 +339,16 @@ impl ActionProvider for AProviderLinuxDebian {
         // convert back to single string for entire file, and make sure we append a newline on the end...
         let new_file_contents_string = new_file_contents_lines.join("\n") + "\n";
 
-        let mode = i32::from_str_radix(&stat_details.0, 8).unwrap();
+        let mode;
+        if let Some(stat_d) = stat_details {
+            mode = i32::from_str_radix(&stat_d.0, 8).unwrap();
+        }
+        else {
+            mode = i32::from_str_radix("644", 8).unwrap();
+            eprintln!("Can't extract stat details from file. Using 644 as default permissions mode.");
+        }
         
-        let send_res = connection.conn.send_text_file_contents_via_scp(&filepath, mode, &new_file_contents_string);
+        let send_res = connection.conn.send_text_file_contents(&filepath, mode, &new_file_contents_string);
         if send_res.is_err() {
             return ActionResult::Failed("".to_string());
         }
@@ -348,7 +358,7 @@ impl ActionProvider for AProviderLinuxDebian {
         return ActionResult::Success;
     }
 
-    fn copy_path(&self, connection: &mut ControlConnection, params: &ControlAction) -> ActionResult {
+    fn copy_path(&self, connection: &mut ControlSession, params: &ControlAction) -> ActionResult {
         let source_path = params.params.get_string_value("sourcePath");
         if source_path.is_none() {
             return ActionResult::InvalidParams;
