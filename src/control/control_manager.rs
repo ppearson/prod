@@ -57,34 +57,32 @@ impl ControlManager {
         return None;
     }
 
-    // pub fn run_command(&self, host: &str, command: &str) -> CommandResult {
-    //     println!("Connecting to host: {}...", host);
+    pub fn run_command(&self, host: &str, command: &str) -> CommandResult {
+        println!("Connecting to host: {}...", host);
 
-    //     let host_target = format!("{}:22", host);
-    //     let tcp_connection = TcpStream::connect(&host_target);
-    //     if tcp_connection.is_err() {
-    //         return CommandResult::ErrorCantConnect("".to_string());
-    //     }
-    //     let tcp_connection = tcp_connection.unwrap();
-    //     let mut sess = Session::new().unwrap();
+        let host_target = format!("{}:22", host);
 
-    //     println!("Enter password:");
-    //     let password = read_password().unwrap();
+        println!("Enter password:");
+        let password = read_password().unwrap();
 
-    //     sess.set_tcp_stream(tcp_connection);
-    //     sess.handshake().unwrap();
-    //     let auth_res = sess.userauth_password("peter", &password);
-    //     if auth_res.is_err() {
-    //         return CommandResult::ErrorAuthenticationIssue(format!("{:?}", auth_res.err()));
-    //     }
+        let username = "peter";
 
-    //     let mut channel = sess.channel_session().unwrap();
-    //     channel.exec(&command).unwrap();
-    //     let mut result_string = String::new();
-    //     channel.read_to_string(&mut result_string).unwrap();
+#[cfg(feature = "ssh")]
+        let connection = ControlSession::new_ssh(&host_target, &username, &password);
 
-    //     return CommandResult::CommandRunOkay(result_string);
-    // }
+#[cfg(not(feature = "ssh"))]
+        let connection = ControlSession::new_dummy_debug();
+
+        if let None = connection {
+            eprintln!("Error connecting to hostname...");
+            return CommandResult::ErrorCantConnect("".to_string());
+        }
+        let mut connection = connection.unwrap();
+
+        connection.conn.send_command(command);
+
+        return CommandResult::CommandRunOkay(connection.conn.get_previous_stdout_response().to_string());
+    }
 
     pub fn perform_actions(&self, actions: &ControlActions) {
         if actions.actions.is_empty() {

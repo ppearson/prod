@@ -20,12 +20,13 @@ use std::path::{Path};
 
 use crate::common::{FileLoadError};
 
-use super::provision_common::{ProvisionActionType};
+use super::provision_common::{ProvisionActionType, ProvisionResponseWaitType};
 
 #[derive(Clone, Debug)]
 pub struct ProvisionParams {
     pub provider:   String,
     pub action:     ProvisionActionType,
+    pub wait_type:  ProvisionResponseWaitType,
     pub values:     BTreeMap<String, String>
 }
 
@@ -42,7 +43,8 @@ impl fmt::Display for ProvisionParams {
 
 impl ProvisionParams {
     pub fn new() -> ProvisionParams {
-        ProvisionParams { provider: String::new(), action: ProvisionActionType::NotSet, values: BTreeMap::new() }
+        ProvisionParams { provider: String::new(), action: ProvisionActionType::NotSet,
+            wait_type: ProvisionResponseWaitType::WaitForResourceCreationOrModification, values: BTreeMap::new() }
     }
 
     // TODO: something a bit better than this? Not really sure what though? Use a Result to indicate
@@ -109,7 +111,16 @@ impl ProvisionParams {
                     _ => ProvisionActionType::Unknown
 //                    _ => ProvisionActionType::Unknown(val.to_string())
                 };
-            }
+            },
+            "waitType" => {
+                use ProvisionResponseWaitType::*;
+                self.wait_type = match val {
+                    "returnImmediately" => ReturnImmediatelyAfterAPIRequest,
+                    "waitForResourceCreation" => WaitForResourceCreationOrModification,
+                    "waitForResourceReady" => WaitForResourceReady,
+                    _ => WaitForResourceCreationOrModification,
+                }
+            },
             _ => {
                 self.values.insert(key.to_string(), val.to_string());
             }

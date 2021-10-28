@@ -127,7 +127,7 @@ pub fn handle_control_command(args: &Vec<String>) -> bool {
     else if args.len() >= 4 {
         // next arg is command to run remotely...
         let command_str = &args[3];
-/* 
+ 
         let res = control_manager.run_command(&host, &command_str);
         match res {
             CommandResult::ErrorCantConnect(err) => {
@@ -143,7 +143,7 @@ pub fn handle_control_command(args: &Vec<String>) -> bool {
                 println!("Command executed okay. Response:\n{}\n", result);
             }
         }
-*/      
+      
         return true;
     }
 

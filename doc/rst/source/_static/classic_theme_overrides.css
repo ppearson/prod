@@ -1,0 +1,17 @@
+
+table.docutils {
+	width:95%;
+	margin-left: 0px;
+	margin-right: auto;
+	border-top:1px solid 000080;
+	border-right:1px solid 000080;
+
+	border-collapse:collapse;
+}
+
+table.docutils td, table.docutils th {
+	padding: 1px 8px 1px 5px;
+	border: 1px solid rgb(49, 49, 49);
+}
+
+
