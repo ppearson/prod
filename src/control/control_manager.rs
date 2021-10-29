@@ -21,7 +21,7 @@ use rpassword::read_password;
 use crate::control::control_actions::{ActionResult, ControlActionType};
 use crate::control::control_common::{ControlSession};
 
-use super::control_actions::{ControlAction, ControlActions, ActionProvider};
+use super::control_actions::{ControlActions, ActionProvider};
 
 use super::action_provider_linux_debian;
 
@@ -108,7 +108,7 @@ impl ControlManager {
         }
 
         // connect to host
-        let host_target = hostname.clone();
+        let host_target = hostname;
 
         let mut username = String::new();
         if actions.user.is_empty() || actions.user == "$PROMPT" {
@@ -144,6 +144,8 @@ impl ControlManager {
 
         eprintln!("Running actions...");
 
+        let mut success = true;
+
         for (count, action) in actions.actions.iter().enumerate() {
             // TODO: Better (automatic - based off lookup) despatch than this...
             //       Although it's not clear how to easily do that (see above attempt), or if
@@ -171,6 +173,9 @@ impl ControlManager {
                 ControlActionType::CopyPath => {
                     provider.copy_path(&mut connection, &action)
                 },
+                ControlActionType::DownloadFile => {
+                    provider.download_file(&mut connection, &action)
+                },
                 ControlActionType::NotSet | ControlActionType::Unrecognised => {
                    ActionResult::Failed("Invalid Action Type".to_string())
                 }
@@ -178,11 +183,14 @@ impl ControlManager {
 
             if result != ActionResult::Success {
                 eprintln!("Error running action: {}, {}...", count, action.action);
+                success = false;
                 break;
             }
         }
 
-        eprintln!("Successfully ran actions.");
+        if success {
+            eprintln!("Successfully ran actions.");
+        }
     }
 }
 

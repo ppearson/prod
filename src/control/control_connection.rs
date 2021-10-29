@@ -19,12 +19,17 @@ pub trait ControlConnection {
 
     }
 
+    // whether there was a response output to stdout...
     fn had_command_response(&self) -> bool {
         return false;
     }
 
     fn get_previous_stdout_response(&self) -> &str {
         return "";
+    }
+
+    fn get_previous_stderr_response(&self) -> Option<&str> {
+        return None;
     }
 
     fn get_text_file_contents(&self, _filepath: &str) -> Result<String, ()> {

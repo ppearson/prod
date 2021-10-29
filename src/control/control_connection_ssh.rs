@@ -51,6 +51,9 @@ impl ControlConnectionSSH {
 
         self.prev_std_out = String::new();
         channel.read_to_string(&mut self.prev_std_out).unwrap();
+
+        self.prev_std_err = String::new();
+        channel.stderr().read_to_string(&mut self.prev_std_err).unwrap();
     }
 
     fn send_command_shell(&mut self, command: &str) {
@@ -123,6 +126,14 @@ impl ControlConnection for ControlConnectionSSH {
 
     fn get_previous_stdout_response(&self) -> &str {
         return &self.prev_std_out;
+    }
+
+    fn get_previous_stderr_response(&self) -> Option<&str> {
+        if self.prev_std_err.is_empty() {
+            return None;
+        }
+
+        return Some(&self.prev_std_err);
     }
 
     fn get_text_file_contents(&self, filepath: &str) -> Result<String, ()> {

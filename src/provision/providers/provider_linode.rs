@@ -107,6 +107,7 @@ impl ProvisionProvider for ProviderLinode {
             params.insert("region");
             params.insert("type");
             params.insert("image");
+//            params.insert("label"); // ? is this correct?
             params.insert("root_pass");
         }
         params

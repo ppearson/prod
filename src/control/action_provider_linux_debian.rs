@@ -150,7 +150,7 @@ impl ActionProvider for AProviderLinuxDebian {
             return ActionResult::InvalidParams;
         }
 
-        // with many providers (Linode and Vultr), apt-get runs automatically just after the instance first starts,
+        // with some providers (Vultr), apt-get runs automatically just after the instance first starts,
         // so we can't run apt-get manually, as the lock file is locked, so wait until apt-get has stopped running
         // by default... 
         let wait_for_apt_get_lockfile = params.params.get_value_as_bool("waitForPMToFinish", true);
@@ -174,8 +174,22 @@ impl ActionProvider for AProviderLinuxDebian {
             }
         }
 
+        // by default, update the list of packages, as with some providers,
+        // this needs to be done first, otherwise packages can't be found...
+        let update_packages = params.params.get_value_as_bool("update", true);
+        if update_packages {
+            let apt_get_command = format!(" apt-get -y update");
+            connection.conn.send_command(&apt_get_command);
+        }
+
         let apt_get_command = format!(" apt-get -y install {}", packages_string);
         connection.conn.send_command(&apt_get_command);
+
+//        println!("Inst: out: {}", connection.conn.get_previous_stdout_response());
+        if let Some(str) = connection.conn.get_previous_stderr_response() {
+            println!("installPackages error: err: {}", str);
+            return ActionResult::Failed(str.to_string());
+        }
 
         return ActionResult::Success;
     }
@@ -385,6 +399,26 @@ impl ActionProvider for AProviderLinuxDebian {
 
         let cp_command = format!(" cp {} {} {}", option_flags, source_path, dest_path);
         connection.conn.send_command(&cp_command);
+
+        return ActionResult::Success;
+    }
+
+    fn download_file(&self, connection: &mut ControlSession, params: &ControlAction) -> ActionResult {
+        let source_url = params.params.get_string_value("sourceURL");
+        if source_url.is_none() {
+            return ActionResult::InvalidParams;
+        }
+        let source_url = source_url.unwrap();
+
+        let dest_path = params.params.get_string_value("destPath");
+        if dest_path.is_none() {
+            return ActionResult::InvalidParams;
+        }
+        let dest_path = dest_path.unwrap();
+
+        // use wget (maybe curl backup?) for the moment
+        let wget_command = format!(" wget {} -O {}", source_url, dest_path);
+        connection.conn.send_command(&wget_command);
 
         return ActionResult::Success;
     }

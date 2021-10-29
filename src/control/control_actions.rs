@@ -38,6 +38,7 @@ pub enum ControlActionType {
     Firewall,
     EditFile,
     CopyPath,
+    DownloadFile,
 }
 
 impl fmt::Display for ControlActionType {
@@ -52,6 +53,7 @@ impl fmt::Display for ControlActionType {
             ControlActionType::Firewall         => write!(f, "firewall"),
             ControlActionType::EditFile         => write!(f, "editFile"),
             ControlActionType::CopyPath         => write!(f, "copyPath"),
+            ControlActionType::DownloadFile     => write!(f, "downloadFile"),
         }
     }
 }
@@ -220,6 +222,7 @@ impl ControlActions {
             "firewall" =>           ControlActionType::Firewall,
             "editFile" =>           ControlActionType::EditFile,
             "copyPath" =>           ControlActionType::CopyPath,
+            "downloadFile" =>       ControlActionType::DownloadFile,
             _ =>                    ControlActionType::Unrecognised
         };
 
@@ -286,6 +289,10 @@ pub trait ActionProvider {
     }
 
     fn copy_path(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
+        return ActionResult::NotImplemented;
+    }
+
+    fn download_file(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 
