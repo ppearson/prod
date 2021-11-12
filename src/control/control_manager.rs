@@ -153,28 +153,28 @@ impl ControlManager {
 
             let result = match action.action {
                 ControlActionType::AddUser => {
-                    provider.add_user(&mut connection, &action)
+                    provider.add_user(&mut connection, action)
                 },
                 ControlActionType::CreateDirectory => {
-                    provider.create_directory(&mut connection, &action)
+                    provider.create_directory(&mut connection, action)
                 },
                 ControlActionType::PackagesInstall => {
-                    provider.install_packages(&mut connection, &action)
+                    provider.install_packages(&mut connection, action)
                 },
                 ControlActionType::SystemCtl => {
-                    provider.systemctrl(&mut connection, &action)
+                    provider.systemctrl(&mut connection, action)
                 },
                 ControlActionType::Firewall => {
-                    provider.firewall(&mut connection, &action)
+                    provider.firewall(&mut connection, action)
                 },
                 ControlActionType::EditFile => {
-                    provider.edit_file(&mut connection, &action)
+                    provider.edit_file(&mut connection, action)
                 },
                 ControlActionType::CopyPath => {
-                    provider.copy_path(&mut connection, &action)
+                    provider.copy_path(&mut connection, action)
                 },
                 ControlActionType::DownloadFile => {
-                    provider.download_file(&mut connection, &action)
+                    provider.download_file(&mut connection, action)
                 },
                 ControlActionType::NotSet | ControlActionType::Unrecognised => {
                    ActionResult::Failed("Invalid Action Type".to_string())
@@ -182,7 +182,7 @@ impl ControlManager {
             };
 
             if result != ActionResult::Success {
-                eprintln!("Error running action: {}, {}...", count, action.action);
+                eprintln!("Error running action #{} : {}...", count, action.action);
                 success = false;
                 break;
             }

@@ -54,11 +54,11 @@ impl ProvisionProvider for ProviderDigitalOcean {
     }
 
     fn configure(&mut self) -> bool {
-        let digital_ocean_api_token_env = std::env::var("DIGITAL_OCEAN_API_TOKEN");
+        let digital_ocean_api_token_env = std::env::var("PROD_DIGITAL_OCEAN_API_TOKEN");
         match digital_ocean_api_token_env {
             Err(_e) => {
                 // silently fail...
-//                eprintln!("Error: $DIGITAL_OCEAN_API_TOKEN not set correctly.");
+//                eprintln!("Error: $PROD_DIGITAL_OCEAN_API_TOKEN not set correctly.");
                 return false;
             }
             Ok(v) => {

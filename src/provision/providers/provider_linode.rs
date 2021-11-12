@@ -16,6 +16,7 @@
 use ureq;
 use ureq::Error;
 use serde_json::{Value};
+use serde::{Deserialize, Serialize};
 
 use std::collections::BTreeSet;
 
@@ -23,6 +24,48 @@ use crate::provision::provision_provider::{ProvisionProvider};
 use crate::provision::provision_common::{ProvisionActionType, ProvisionActionResult, ActionResultValues};
 use crate::provision::provision_manager::{ListType};
 use crate::provision::provision_params::{ProvisionParams};
+
+#[derive(Serialize, Deserialize)]
+struct TypeResultItem {
+    id: String,
+    label: String,
+    class: String,
+    memory: u32,
+    disk: u32,
+    transfer: u32,
+    vcpus: u32,
+ //   monthly_cost: u32,
+}
+
+#[derive(Serialize, Deserialize)]
+struct TypeListResults {
+    data: Vec<TypeResultItem>
+}
+
+#[derive(Serialize, Deserialize)]
+struct RegionResultItem {
+    id: String,
+    country: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct RegionListResults {
+    data: Vec<RegionResultItem>
+}
+
+#[derive(Serialize, Deserialize)]
+struct ImageResultItem {
+    id: String,
+    label: String,
+    deprecated: bool,
+    size: u32,
+    vendor: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct ImageListResults {
+    data: Vec<ImageResultItem>
+}
 
 pub struct ProviderLinode {
     linode_api_key: String,
@@ -54,11 +97,11 @@ impl ProvisionProvider for ProviderLinode {
     }
 
     fn configure(&mut self) -> bool {
-        let linode_api_key_env = std::env::var("LINODE_API_KEY");
+        let linode_api_key_env = std::env::var("PROD_LINODE_API_KEY");
         match linode_api_key_env {
             Err(_e) => {
                 // silently fail...
-//                eprintln!("Error: $LINODE_API_KEY not set correctly.");
+//                eprintln!("Error: $PROD_LINODE_API_KEY not set correctly.");
                 return false;
             }
             Ok(v) => {
@@ -83,7 +126,7 @@ impl ProvisionProvider for ProviderLinode {
                 return false;
             }
         };
-        let resp = ureq::get(&url)
+        let resp = ureq::get(url)
 //            .set("Authorization", &format!("Bearer {}", self.linode_api_key))
             .call();
         
@@ -94,10 +137,56 @@ impl ProvisionProvider for ProviderLinode {
 
         let resp_string = resp.unwrap().into_string().unwrap();
 
-        // TODO: format these nicely, and maybe filter them?...
+        if list_type == ListType::Regions {
+            let results: RegionListResults = serde_json::from_str(&resp_string).unwrap();
 
+            // TODO: come up with some better way of doing this for column alignment...
+            let max_id_length = results.data.iter().map(|r| r.id.len()).max().unwrap();
+            let max_country_length = results.data.iter().clone().map(|r| r.country.len()).max().unwrap();
+
+            println!("{} regions:", results.data.len());
+
+            for region in &results.data {
+                println!("{:midl$} {:mcl$}", region.id, region.country,
+                                                    midl = max_id_length, mcl = max_country_length);
+            }
+        }
+        else if list_type == ListType::Plans {
+            let results: TypeListResults = serde_json::from_str(&resp_string).unwrap();
+
+            // TODO: come up with some better way of doing this for column alignment...
+            let max_id_length = results.data.iter().map(|p| p.id.len()).max().unwrap();
+            let max_label_length = results.data.iter().clone().map(|p| p.label.len()).max().unwrap();
+            let max_memory_length = results.data.iter().clone().map(|p| format!("{}", p.memory).len()).max().unwrap();
+            let max_disk_length = results.data.iter().clone().map(|p| format!("{}", p.disk).len()).max().unwrap();
+
+            println!("{} plans:", results.data.len());
+
+            for plan in &results.data {
+                println!("{:midl$} {:mll$} {:mml$} MB {:mdl$} MB", plan.id, plan.label, plan.memory, plan.disk,
+                                                    midl = max_id_length, mll = max_label_length, mml = max_memory_length,
+                                                    mdl = max_disk_length);
+            }
+        }
+        else if list_type == ListType::OSs {
+            let results: ImageListResults = serde_json::from_str(&resp_string).unwrap();
+
+            // TODO: come up with some better way of doing this for column alignment...
+            let max_id_length = results.data.iter().map(|i| i.id.len()).max().unwrap();
+            let max_label_length = results.data.iter().map(|i| i.label.len()).max().unwrap();
+
+            println!("{} OS images:", results.data.len());
+
+            for image in &results.data {
+                println!("{:midl$} {:mll$} {}", image.id, image.label, image.vendor,
+                                                    midl = max_id_length, mll = max_label_length);
+            }
+        }
+        else {
+             // TODO: format these nicely, and maybe filter them?...
         println!("{}", resp_string);
-        
+        }
+
         return true;
     }
 
@@ -248,7 +337,7 @@ impl ProvisionProvider for ProviderLinode {
                 // sleep a bit to give things a chance...
                 std::thread::sleep(std::time::Duration::from_secs(15));
 
-                let instance_info = self.get_value_map_from_get_instance_call(&instance_id);
+                let instance_info = self.get_value_map_from_get_instance_call(instance_id);
                 if instance_info.is_err() {
                     return instance_info.err().unwrap();
                 }

@@ -32,13 +32,39 @@ use provision::provision_common::{ProvisionActionType};
 use provision::provision_manager::{ProvisionManager, ListType};
 use provision::provision_params::{ProvisionParams};
 
+enum MainType {
+    Unknown,
+    Provision,
+    Control
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 2 {
-        println!("Error: vps_deploy requires at least one command line arg file.");
+        println!("Error: prod requires at least one command line arg file.");
         return
     }
+
+    // work out if we have override env variables set for type...
+/*    
+    let mut main_type = MainType::Unknown;
+    if let Ok(val) = std::env::var("PROD_TYPE_OVERRIDE") {
+        if val == "provision" {
+            main_type = MainType::Provision;
+        }
+        else if val == "control" {
+            main_type = MainType::Control;
+        }
+    }
+*/
+    // and for provider...
+/*
+    let mut provider_override: Option<String> = None;
+    if let Ok(String) = std::env::var("PROD_PROVIDER_OVERRIDE") {
+        provider_override = Some(String);
+    }
+*/
 
     let first_command = &args[1];
     if first_command.contains('.') {
@@ -86,6 +112,8 @@ pub fn handle_provision_command(args: &Vec<String>) -> bool {
     }
     else {
         // hopefully a command + provider
+        // TODO: swap command + provider order around given we will allow overriding provider
+        //       with env variable in future, and might make more contextual sense?
         let command = &args[2];
         if command == "list" && args.len() >= 4 {
             let provider = &args[3];
@@ -98,8 +126,21 @@ pub fn handle_provision_command(args: &Vec<String>) -> bool {
                     _ => ListType::Regions
                 };
             }
-            provision_manager.list_available(&provider, list_type);
+            provision_manager.list_available(provider, list_type);
             return true;
+        }
+        else if (command == "delInstance" || command == "deleteInstance") && args.len() > 4 {
+            let provider = &args[3];
+            let instance_id = &args[4];
+
+            let mut params = ProvisionParams::from_details(provider, ProvisionActionType::DeleteInstance);
+            params.values.insert("instance_id".to_string(), instance_id.to_string());
+            let _response = provision_manager.perform_action(&params, dry_run);
+
+            return true;
+        }
+        else {
+            eprintln!("Unrecognised command string: '{}'", command);
         }
     }
 
@@ -118,7 +159,7 @@ pub fn handle_control_command(args: &Vec<String>) -> bool {
     if next_arg.contains('.') && args.len() == 3 {
         // likely a control/action file
         // TODO: error handling!
-        let control_actions = ControlActions::from_file(&next_arg).unwrap();
+        let control_actions = ControlActions::from_file(next_arg).unwrap();
 
         control_manager.perform_actions(&control_actions);
 
@@ -128,7 +169,7 @@ pub fn handle_control_command(args: &Vec<String>) -> bool {
         // next arg is command to run remotely...
         let command_str = &args[3];
  
-        let res = control_manager.run_command(&host, &command_str);
+        let res = control_manager.run_command(host, command_str);
         match res {
             CommandResult::ErrorCantConnect(err) => {
                 eprintln!("Error: can't connect to host: {}, {}...", host, err);

@@ -57,7 +57,11 @@ pub trait ProvisionProvider {
     }
 
     fn create_instance(&self, _params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
-        return ProvisionActionResult::Failed(String::new());
+        return ProvisionActionResult::NotSupported;
+    }
+
+    fn delete_instance(&self, _params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
+        return ProvisionActionResult::NotSupported;
     }
 
 }

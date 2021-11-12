@@ -47,6 +47,11 @@ impl ProvisionParams {
             wait_type: ProvisionResponseWaitType::WaitForResourceCreationOrModification, values: BTreeMap::new() }
     }
 
+    pub fn from_details(provider: &str, action: ProvisionActionType) -> ProvisionParams {
+        ProvisionParams { provider: provider.to_string(), action,
+            wait_type: ProvisionResponseWaitType::WaitForResourceCreationOrModification, values: BTreeMap::new() }
+    }
+
     // TODO: something a bit better than this? Not really sure what though? Use a Result to indicate
     //       failure?
     pub fn from_file(path: &str) -> Result<ProvisionParams, FileLoadError> {
@@ -94,7 +99,7 @@ impl ProvisionParams {
                 continue;
             }
 
-            provision_params.ingest_param(&string_pairs[0], &string_pairs[1].trim());
+            provision_params.ingest_param(string_pairs[0], string_pairs[1].trim());
         }
 
         return Ok(provision_params);
@@ -108,6 +113,7 @@ impl ProvisionParams {
             "action" => {
                 self.action = match val {
                     "createInstance" => ProvisionActionType::CreateInstance,
+                    "deleteInstance" => ProvisionActionType::DeleteInstance,
                     _ => ProvisionActionType::Unknown
 //                    _ => ProvisionActionType::Unknown(val.to_string())
                 };
@@ -117,7 +123,7 @@ impl ProvisionParams {
                 self.wait_type = match val {
                     "returnImmediately" => ReturnImmediatelyAfterAPIRequest,
                     "waitForResourceCreation" => WaitForResourceCreationOrModification,
-                    "waitForResourceReady" => WaitForResourceReady,
+                    "waitForResourceFinalised" => WaitForResourceFinalised,
                     _ => WaitForResourceCreationOrModification,
                 }
             },

@@ -23,6 +23,7 @@ use std::collections::BTreeMap;
 pub enum ProvisionActionType {
     NotSet,
     CreateInstance,
+    DeleteInstance,
     Unknown
 //    Unknown(String)
 }
@@ -32,6 +33,7 @@ impl fmt::Display for ProvisionActionType {
         match self {
             ProvisionActionType::NotSet          => write!(f, "None"),
             ProvisionActionType::CreateInstance  => write!(f, "createInstance"),
+            ProvisionActionType::DeleteInstance  => write!(f, "deleteInstance"),
 //            ProvisionActionType::Unknown(string) => write!(f, "Unknown('{}')", string)
             ProvisionActionType::Unknown => write!(f, "Unknown")
         }
@@ -43,11 +45,12 @@ impl fmt::Display for ProvisionActionType {
 pub enum ProvisionResponseWaitType {
     ReturnImmediatelyAfterAPIRequest,
     WaitForResourceCreationOrModification, // wait for an IP address to exist
-    WaitForResourceReady // wait for the resource to actually be useable...
+    WaitForResourceFinalised               // wait for the resource to actually be useable...
 }
 
 #[derive(Clone, Debug)]
 pub enum ProvisionActionResult {
+    NotSupported,
     ErrorNotConfigured(String),
     ErrorMissingParams(String),
     ErrorCantConnect(String),

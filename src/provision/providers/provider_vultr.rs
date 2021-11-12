@@ -16,6 +16,7 @@
 use ureq;
 use ureq::Error;
 use serde_json::{Value};
+use serde::{Deserialize, Serialize};
 
 use std::collections::BTreeSet;
 
@@ -23,6 +24,50 @@ use crate::provision::provision_provider::{ProvisionProvider};
 use crate::provision::provision_common::{ProvisionActionType, ProvisionActionResult, ActionResultValues};
 use crate::provision::provision_manager::{ListType};
 use crate::provision::provision_params::{ProvisionParams};
+
+#[derive(Serialize, Deserialize)]
+struct PlanResultItem {
+    id: String,
+    vcpu_count: u32,
+    ram: u32,
+    disk: u32,
+    bandwidth: u32,
+    monthly_cost: u32,
+
+    #[serde(alias = "type")]
+    plan_type: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct PlanListResults {
+    plans: Vec<PlanResultItem>
+}
+
+#[derive(Serialize, Deserialize)]
+struct RegionResultItem {
+    id: String,
+    city: String,
+    country: String,
+    continent: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct RegionListResults {
+    regions: Vec<RegionResultItem>
+}
+
+#[derive(Serialize, Deserialize)]
+struct OSResultItem {
+    id: u32,
+    name: String,
+    arch: String,
+    family: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct OSListResults {
+    os: Vec<OSResultItem>
+}
 
 pub struct ProviderVultr {
     vultr_api_key: String,
@@ -54,11 +99,11 @@ impl ProvisionProvider for ProviderVultr {
     }
 
     fn configure(&mut self) -> bool {
-        let vultr_api_key_env = std::env::var("VULTR_API_KEY");
+        let vultr_api_key_env = std::env::var("PROD_VULTR_API_KEY");
         match vultr_api_key_env {
             Err(_e) => {
                 // silently fail...
-//                eprintln!("Error: $VULTR_API_KEY not set correctly.");
+//                eprintln!("Error: $PROD_VULTR_API_KEY not set correctly.");
                 return false;
             }
             Ok(v) => {
@@ -94,10 +139,60 @@ impl ProvisionProvider for ProviderVultr {
 
         let resp_string = resp.unwrap().into_string().unwrap();
 
-        // TODO: format these nicely, and maybe filter them?...
+        if list_type == ListType::Regions {
+            let results: RegionListResults = serde_json::from_str(&resp_string).unwrap();
 
-        println!("{}", resp_string);
-        
+            // TODO: come up with some better way of doing this for column alignment...
+            let max_city_length = results.regions.iter().map(|r| r.city.len()).max().unwrap();
+            let max_country_length = results.regions.iter().clone().map(|r| r.country.len()).max().unwrap();
+
+            println!("{} regions:", results.regions.len());
+
+            for region in &results.regions {
+                println!("{}  {:mcl$} {:mcntl$} {}", region.id, region.city, region.country, region.continent,
+                                                    mcl = max_city_length, mcntl = max_country_length);
+            }
+        }
+        else if list_type == ListType::Plans {
+            let results: PlanListResults = serde_json::from_str(&resp_string).unwrap();
+
+            // TODO: come up with some better way of doing this for column alignment...
+            let max_id_length = results.plans.iter().map(|p| p.id.len()).max().unwrap();
+            let max_cost_length = results.plans.iter().map(|p| format!("{}", p.monthly_cost).len()).max().unwrap();
+            let max_disk_length = results.plans.iter().clone().map(|p| format!("{}", p.disk).len()).max().unwrap();
+            let max_ram_length = results.plans.iter().clone().map(|p| format!("{}", p.ram).len()).max().unwrap();
+
+            println!("{} plans:", results.plans.len());
+
+            for plan in &results.plans {
+                println!("{:midl$} : {:>mcl$} {:mdl$} GB {:mrl$} MB {} GB", plan.id, format!("${}", plan.monthly_cost),
+                                                    plan.disk, plan.ram, plan.bandwidth,
+                                                    midl = max_id_length, mcl = max_cost_length + 1,
+                                                    mdl = max_disk_length, mrl = max_ram_length);
+            }
+        }
+        else if list_type == ListType::OSs {
+            let results: OSListResults = serde_json::from_str(&resp_string).unwrap();
+
+            // TODO: come up with some better way of doing this for column alignment...
+            let max_id_length = results.os.iter().map(|os| format!("{}", os.id).len()).max().unwrap();
+            let max_name_length = results.os.iter().map(|os| os.name.len()).max().unwrap();
+            let max_arch_length = results.os.iter().clone().map(|os| os.arch.len()).max().unwrap();
+            let max_family_length = results.os.iter().clone().map(|os| os.family.len()).max().unwrap();
+
+            println!("{} OS images:", results.os.len());
+
+            for image in &results.os {
+                println!("{}  {:mnl$} {:mal$} {:mfl$}", image.id, image.name, image.arch, image.family,
+                                                    mnl = max_name_length, mal = max_arch_length, mfl = max_family_length);
+            }
+        }
+        else {
+            // TODO: format these nicely, and maybe filter them?...
+
+            println!("{}", resp_string);
+        }
+
         return true;
     }
 
@@ -107,6 +202,9 @@ impl ProvisionProvider for ProviderVultr {
             params.insert("region");
             params.insert("plan");
             params.insert("os_id");
+        }
+        else if action == ProvisionActionType::DeleteInstance {
+            params.insert("instance_id");
         }
         params
     }
@@ -228,7 +326,7 @@ impl ProvisionProvider for ProviderVultr {
             // sleep a bit to give things a chance...
             std::thread::sleep(std::time::Duration::from_secs(15));
 
-            let instance_info = self.get_value_map_from_get_instance_call(&instance_id);
+            let instance_info = self.get_value_map_from_get_instance_call(instance_id);
             if instance_info.is_err() {
                 return instance_info.err().unwrap();
             }
@@ -265,6 +363,58 @@ impl ProvisionProvider for ProviderVultr {
         }
         
         return ProvisionActionResult::ActionCreatedInProgress(result_values);
+    }
+
+    fn delete_instance(&self, params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
+        let instance_id = params.get_value("instance_id", "");
+        let full_url = format!("https://api.vultr.com/v2/instances/{}", instance_id);
+
+        let resp = ureq::delete(&full_url)
+            .set("Authorization", &format!("Bearer {}", self.vultr_api_key))
+            .call();
+
+        // TODO: there's an insane amount of boilerplate error handling and response
+        //       decoding going on here... Try and condense it...
+        
+        // TODO: make some of this re-useable for multiple actions...
+        if resp.is_err() {
+            match resp.err() {
+                Some(Error::Status(code, response)) => {
+                    // server returned an error code we weren't expecting...
+                    match code {
+                        400 => {
+                            eprintln!("Error: Bad request error: {}", response.into_string().unwrap());
+                            return ProvisionActionResult::ErrorAuthenticationIssue("".to_string());
+                        },
+                        401 => {
+                            eprintln!("Error: authentication error with Vultr API: {}", response.into_string().unwrap());
+                            return ProvisionActionResult::ErrorAuthenticationIssue("".to_string());
+                        },
+                        404 => {
+                            eprintln!("Error: Not found response from Vultr API: {}", response.into_string().unwrap());
+                            return ProvisionActionResult::Failed("".to_string());
+                        }
+                        _ => {
+                            
+                        }
+                    }
+                    eprintln!("Error deleting instance0: code: {}, resp: {:?}", code, response);
+                },
+                Some(e) => {
+                    eprintln!("Error deleting instance1: {:?}", e);
+                }
+                _ => {
+                    // some sort of transport/io error...
+                    eprintln!("Error deleting instance2: ");
+                }
+            }
+            return ProvisionActionResult::Failed("".to_string());
+        }
+        
+        // response should be empty...
+        let resp_string = resp.unwrap().into_string().unwrap();
+
+        return ProvisionActionResult::ActionCreatedInProgress(ActionResultValues::new());
     }
 }
 

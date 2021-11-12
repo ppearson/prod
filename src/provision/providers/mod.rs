@@ -15,5 +15,6 @@
 
 pub mod provider_digital_ocean;
 pub mod provider_linode;
+pub mod provider_openstack;
 pub mod provider_vultr;
 

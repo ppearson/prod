@@ -20,6 +20,7 @@ use super::provision_provider::{ProvisionProvider};
 
 use super::providers::provider_digital_ocean::{ProviderDigitalOcean};
 use super::providers::provider_linode::{ProviderLinode};
+use super::providers::provider_openstack::{ProviderOpenStack};
 use super::providers::provider_vultr::{ProviderVultr};
 
 use super::provision_params::{ProvisionParams};
@@ -28,7 +29,7 @@ pub struct ProvisionManager {
     registered_providers: Vec<Box<dyn ProvisionProvider> >
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 #[allow(dead_code)]
 pub enum ListType {
     Plans,
@@ -46,6 +47,10 @@ impl ProvisionManager {
         manager.registered_providers.push(Box::new(new_provider));
 
         let mut new_provider = ProviderLinode::new();
+        new_provider.configure();
+        manager.registered_providers.push(Box::new(new_provider));
+
+        let mut new_provider = ProviderOpenStack::new();
         new_provider.configure();
         manager.registered_providers.push(Box::new(new_provider));
 
@@ -106,7 +111,7 @@ impl ProvisionManager {
         }
         
         let required_params = provider_item.get_required_params_for_action(params.action);
-        if !self.check_required_params_are_provided(&params, &required_params) {
+        if !self.check_required_params_are_provided(params, &required_params) {
             // Note: the function itself prints a helpful error message...
             return ProvisionActionResult::ErrorMissingParams("".to_string());
         }
@@ -118,7 +123,6 @@ impl ProvisionManager {
             },
             ProvisionActionType::CreateInstance => {
                 let res = provider_item.create_instance(params, dry_run);
-
                 match res.clone() {
                     ProvisionActionResult::ActionCreatedInProgress(res_values) |
                     ProvisionActionResult::ActionCreatedDone(res_values) => {
@@ -127,12 +131,21 @@ impl ProvisionManager {
                             println!("  {}:\t{}", key.to_string(), val.to_string());
                         }
                     },
-                    _ => {
-                        
+                    _ => {           
                     }
                 }
-
-                // failed
+                return res;
+            }
+            ProvisionActionType::DeleteInstance => {
+                let res = provider_item.delete_instance(params, dry_run);
+                match res.clone() {
+                    ProvisionActionResult::ActionCreatedInProgress(res_values) |
+                    ProvisionActionResult::ActionCreatedDone(res_values) => {
+                        println!("Cloud instance deleted successfully:\n");
+                    },
+                    _ => {       
+                    }
+                }
                 return res;
             }
             _ => {
