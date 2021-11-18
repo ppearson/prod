@@ -16,7 +16,7 @@
 use crate::params::{ParamValue, Params};
 
 use super::control_actions::{ActionProvider, ActionResult, ControlAction};
-use super::control_common::{ControlSession};
+use super::control_common::{ControlSession, ControlSessionParams, UserType};
 use super::terminal_helpers_linux;
 
 use std::collections::BTreeMap;
@@ -24,12 +24,31 @@ use std::collections::BTreeMap;
 use rpassword::read_password;
 
 pub struct AProviderLinuxDebian {
-    
+    // params which give us some hints as to context of session, i.e. username - sudo vs root, etc.
+    session_params: ControlSessionParams,
 }
 
 impl AProviderLinuxDebian {
-    pub fn new() -> AProviderLinuxDebian {
-        AProviderLinuxDebian {  }
+    pub fn new(session_params: ControlSessionParams) -> AProviderLinuxDebian {
+        AProviderLinuxDebian { session_params }
+    }
+
+    pub fn name() -> String {
+        return "linux_debian".to_string();
+    }
+
+    fn post_process_command(&self, command: &str) -> String {
+        let mut final_command = command.to_string();
+
+        if self.session_params.user_type == UserType::Sudo {
+            final_command.insert_str(0, "sudo ");
+        }
+
+        if self.session_params.hide_commands_from_history {
+            final_command.insert_str(0, " ");
+        }
+
+        return final_command;
     }
 }
 
@@ -66,31 +85,33 @@ impl ActionProvider for AProviderLinuxDebian {
         let shell = params.params.get_string_value_with_default("shell", "/bin/bash");
         useradd_command_options.push_str(&format!("-s {}", shell));
 
-        let useradd_full_command = format!(" useradd {} {}", useradd_command_options, user);
+        let useradd_full_command = format!("useradd {} {}", useradd_command_options, user);
 
-        connection.conn.send_command(&useradd_full_command);
+        connection.conn.send_command(&self.post_process_command(&useradd_full_command));
 
         // check response is nothing...
         if connection.conn.had_command_response() {
             return ActionResult::Failed("Unexpected response from useradd command.".to_string());
         }
 
+        // double make sure we don't add command to history here, even though post_process_command() should do it
+        // if required.
 //        let change_password_command = format!(" echo -e \"{0}\n{0}\" | passwd {1}", password, user);
         let change_password_command = format!(" echo -e '{}:{}' | chpasswd", user, password);
-        connection.conn.send_command(&change_password_command);
+        connection.conn.send_command(&self.post_process_command(&change_password_command));
 
         // now add user to any groups
         // see if there's just a single group...
         if params.params.has_value("group") {
-            let usermod_command = format!(" usermod -aG {} {}", params.params.get_string_value_with_default("group", ""), user);
-            connection.conn.send_command(&usermod_command);
+            let usermod_command = format!("usermod -aG {} {}", params.params.get_string_value_with_default("group", ""), user);
+            connection.conn.send_command(&self.post_process_command(&usermod_command));
         }
         else if params.params.has_value("groups") {
             // there's multiple
             let groups = params.params.get_values_as_vec_of_strings("groups");
             for group in groups {
-                let usermod_command = format!(" usermod -aG {} {}", group, user);
-                connection.conn.send_command(&usermod_command);
+                let usermod_command = format!("usermod -aG {} {}", group, user);
+                connection.conn.send_command(&self.post_process_command(&usermod_command));
             }
         }
 
@@ -106,22 +127,22 @@ impl ActionProvider for AProviderLinuxDebian {
         }
 
         let path_to_create = params.params.get_string_value("path").unwrap();
-        let mnkdir_command = format!(" mkdir {}", path_to_create);
-        connection.conn.send_command(&mnkdir_command);
+        let mnkdir_command = format!("mkdir {}", path_to_create);
+        connection.conn.send_command(&self.post_process_command(&mnkdir_command));
 
         if let Some(permissions) = params.params.get_string_or_int_value_as_string("permissions") {
-            let chmod_command = format!(" chmod {} {}", permissions, path_to_create);
-            connection.conn.send_command(&chmod_command);
+            let chmod_command = format!("chmod {} {}", permissions, path_to_create);
+            connection.conn.send_command(&self.post_process_command(&chmod_command));
         }
 
         if let Some(owner) = params.params.get_string_value("owner") {
-            let chown_command = format!(" chown {} {}", owner, path_to_create);
-            connection.conn.send_command(&chown_command);
+            let chown_command = format!("chown {} {}", owner, path_to_create);
+            connection.conn.send_command(&self.post_process_command(&chown_command));
         }
 
         if let Some(group) = params.params.get_string_value("group") {
-            let chgrp_command = format!(" chgrp {} {}", group, path_to_create);
-            connection.conn.send_command(&chgrp_command);
+            let chgrp_command = format!("chgrp {} {}", group, path_to_create);
+            connection.conn.send_command(&self.post_process_command(&chgrp_command));
         }
 
         // TODO: check for 'groups' as well to handle setting multiple...
@@ -157,7 +178,7 @@ impl ActionProvider for AProviderLinuxDebian {
         if wait_for_apt_get_lockfile {
             let mut try_count = 0;
             while try_count < 20 {
-                connection.conn.send_command(" pidof apt-get");
+                connection.conn.send_command(&self.post_process_command("pidof apt-get"));
 
                 if !connection.conn.had_command_response() {
                     // it's likely no longer running, so we can continue...
@@ -174,20 +195,24 @@ impl ActionProvider for AProviderLinuxDebian {
             }
         }
 
+        // unattended-upgr
+
+        // TODO: might be worth polling for locks on /var/lib/dpkg/lock-frontend ?
+
         // by default, update the list of packages, as with some providers,
         // this needs to be done first, otherwise packages can't be found...
         let update_packages = params.params.get_value_as_bool("update", true);
         if update_packages {
-            let apt_get_command = format!(" apt-get -y update");
-            connection.conn.send_command(&apt_get_command);
+            let apt_get_command = format!("apt-get -y update");
+            connection.conn.send_command(&self.post_process_command(&apt_get_command));
         }
 
-        let apt_get_command = format!(" apt-get -y install {}", packages_string);
-        connection.conn.send_command(&apt_get_command);
+        let apt_get_command = format!("apt-get -y install {}", packages_string);
+        connection.conn.send_command(&self.post_process_command(&apt_get_command));
 
 //        println!("Inst: out: {}", connection.conn.get_previous_stdout_response());
         if let Some(str) = connection.conn.get_previous_stderr_response() {
-            println!("installPackages error: err: {}", str);
+            println!("installPackages error: {}", str);
             return ActionResult::Failed(str.to_string());
         }
 
@@ -205,7 +230,7 @@ impl ActionProvider for AProviderLinuxDebian {
 
         let systemctrl_command = format!("systemctl {} {}", action, service);
         
-        connection.conn.send_command(&systemctrl_command);
+        connection.conn.send_command(&self.post_process_command(&systemctrl_command));
 
         return ActionResult::Success;
     }
@@ -223,14 +248,14 @@ impl ActionProvider for AProviderLinuxDebian {
         // for the moment to allow freeform strings...
         let rules = params.params.get_values_as_vec_of_strings("rules");
         for rule in rules {
-            let ufw_command = format!(" ufw {}", rule);
-            connection.conn.send_command(&ufw_command);
+            let ufw_command = format!("ufw {}", rule);
+            connection.conn.send_command(&self.post_process_command(&ufw_command));
         }
 
         if params.params.has_value("enabled") {
             let is_enabled = params.params.get_value_as_bool("enabled", true);
-            let ufw_command = format!(" ufw --force {}", if is_enabled { "enable" } else { "disable"});
-            connection.conn.send_command(&ufw_command);
+            let ufw_command = format!("ufw --force {}", if is_enabled { "enable" } else { "disable"});
+            connection.conn.send_command(&self.post_process_command(&ufw_command));
         }
 
         return ActionResult::Success;
@@ -254,14 +279,14 @@ impl ActionProvider for AProviderLinuxDebian {
         
         if params.params.get_value_as_bool("backup", false) {
             // TODO: something more robust than this...
-            let mv_command = format!(" cp {0} {0}.bak", filepath);
-            connection.conn.send_command(&mv_command);
+            let mv_command = format!("cp {0} {0}.bak", filepath);
+            connection.conn.send_command(&self.post_process_command(&mv_command));
         }
 
         // Note: the Stat returned by scp_recv() is currently a private field, so we can only access bits of it,
         //       so we need to do a full stat call remotely to get the actual info
-        let stat_command = format!(" stat {}", filepath);
-        connection.conn.send_command(&stat_command);
+        let stat_command = format!("stat {}", filepath);
+        connection.conn.send_command(&self.post_process_command(&stat_command));
 
         let stat_response = connection.conn.get_previous_stdout_response().to_string();
         // get the details from the stat call...
@@ -397,8 +422,8 @@ impl ActionProvider for AProviderLinuxDebian {
         }
         option_flags = option_flags.trim().to_string();
 
-        let cp_command = format!(" cp {} {} {}", option_flags, source_path, dest_path);
-        connection.conn.send_command(&cp_command);
+        let cp_command = format!("cp {} {} {}", option_flags, source_path, dest_path);
+        connection.conn.send_command(&self.post_process_command(&cp_command));
 
         return ActionResult::Success;
     }
@@ -417,8 +442,8 @@ impl ActionProvider for AProviderLinuxDebian {
         let dest_path = dest_path.unwrap();
 
         // use wget (maybe curl backup?) for the moment
-        let wget_command = format!(" wget {} -O {}", source_url, dest_path);
-        connection.conn.send_command(&wget_command);
+        let wget_command = format!("wget {} -O {}", source_url, dest_path);
+        connection.conn.send_command(&self.post_process_command(&wget_command));
 
         return ActionResult::Success;
     }

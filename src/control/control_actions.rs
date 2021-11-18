@@ -15,7 +15,6 @@
 
 #![allow(dead_code)]
 
-use std::cmp::Ordering;
 use std::fmt;
 use std::io::{BufReader, Read};
 use std::path::{Path};

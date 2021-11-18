@@ -143,6 +143,5 @@ impl ControlConnection for ControlConnectionSSH {
     fn send_text_file_contents(&self, filepath: &str, mode: i32, contents: &str) -> Result<(), ()> {
         return self.send_text_file_contents_via_scp(filepath, mode, contents);
     }
-
     
 }

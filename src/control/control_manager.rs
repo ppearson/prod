@@ -19,14 +19,14 @@ extern crate rpassword;
 use rpassword::read_password;
 
 use crate::control::control_actions::{ActionResult, ControlActionType};
-use crate::control::control_common::{ControlSession};
+use crate::control::control_common::{ControlSession, ControlSessionParams};
 
 use super::control_actions::{ControlActions, ActionProvider};
 
 use super::action_provider_linux_debian;
 
 pub struct ControlManager {
-    registered_action_providers: Vec<Box<dyn ActionProvider> >
+    
 }
 
 #[derive(Clone, Debug)]
@@ -39,19 +39,15 @@ pub enum CommandResult {
 
 impl ControlManager {
     pub fn new() -> ControlManager {
-        let mut manager = ControlManager { registered_action_providers: Vec::new() };
-
-        let new_provider = action_provider_linux_debian::AProviderLinuxDebian::new();
-        manager.registered_action_providers.push(Box::new(new_provider));
-
+        let manager = ControlManager { };
         return manager;
     }
 
-    fn find_provider(&self, provider: &str) -> Option<&dyn ActionProvider> {
-        for prov in &self.registered_action_providers {
-            if prov.name() == provider {
-                return Some(prov.as_ref());
-            }
+    // Not really happy with this, but I can't work out how to nicely self-configure/inspect in a registry,
+    // so this seems next best thing...
+    fn create_provider(&self, provider: &str, session_params: ControlSessionParams) -> Option<Box<dyn ActionProvider>> {
+        if provider == action_provider_linux_debian::AProviderLinuxDebian::name() {
+            return Some(Box::new(action_provider_linux_debian::AProviderLinuxDebian::new(session_params)));
         }
 
         return None;
@@ -67,11 +63,13 @@ impl ControlManager {
 
         let username = "peter";
 
+        let session_params = ControlSessionParams::new(&host_target, &username, &password, true);
+
 #[cfg(feature = "ssh")]
-        let connection = ControlSession::new_ssh(&host_target, &username, &password);
+        let connection = ControlSession::new_ssh(session_params);
 
 #[cfg(not(feature = "ssh"))]
-        let connection = ControlSession::new_dummy_debug();
+        let connection = ControlSession::new_dummy_debug(session_params);
 
         if let None = connection {
             eprintln!("Error connecting to hostname...");
@@ -89,7 +87,12 @@ impl ControlManager {
             eprintln!("Error: no actions specified.");
         }
 
-        let provider = self.find_provider(&actions.provider);
+        // TODO: come up with a better way of handling this partial initialisation / ordering dilema to work
+        //       out if a provider exists before querying for usernames and passwords...
+        let mut session_params = ControlSessionParams::new("", "", "", true);
+
+        // temp creation to check it exists as a provider name...
+        let provider = self.create_provider(&actions.provider, session_params);
         if provider.is_none() {
             eprintln!("Error: Can't find provider: '{}'.", actions.provider);
             return;
@@ -123,18 +126,22 @@ impl ControlManager {
         println!("Enter password:");
         let password = read_password().unwrap();
 
+        // Now configure ControlSessionParams properly here...
+        // TODO: as above, not really happy with this, but there's various "not great" ways of solving the issue
+        //       I don't like, so I'm happier (just) with this for the moment...
+        session_params = ControlSessionParams::new(&host_target, &username, &password, true);
+
 #[cfg(feature = "ssh")]
-        let connection = ControlSession::new_ssh(&host_target, &username, &password);
+        let connection = ControlSession::new_ssh(session_params);
 
 #[cfg(not(feature = "ssh"))]
-        let connection = ControlSession::new_dummy_debug();
+        let connection = ControlSession::new_dummy_debug(session_params);
 
         if let None = connection {
             eprintln!("Error connecting to hostname...");
             return;
         }
         let mut connection = connection.unwrap();
-
 
 /*
         let closure = || provider.add_user(&mut connection, &actions.actions[0]);
