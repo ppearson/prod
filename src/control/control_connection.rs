@@ -39,6 +39,10 @@ pub trait ControlConnection {
     fn send_text_file_contents(&self, _filepath: &str, _mode: i32, _contents: &str) -> Result<(), ()> {
         return Err(());
     }
+
+    fn send_file(&self, _local_filepath: &str, _dest_filepath: &str, _mode: i32) -> Result<(), ()> {
+        return Err(());
+    }
 }
 
 pub struct ControlConnectionDummyDebug {

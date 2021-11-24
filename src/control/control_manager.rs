@@ -100,11 +100,16 @@ impl ControlManager {
 
         let provider = provider.unwrap();
 
+        let mut asked_for_hostname = false;
+        let mut asked_for_username = false;
+
         let mut hostname = String::new();
         if actions.host.is_empty() || actions.host == "$PROMPT" {
             eprintln!("Please enter hostname to connect to:");
             std::io::stdin().read_line(&mut hostname).expect("Error reading hostname from std input");
             hostname = hostname.trim().to_string();
+
+            asked_for_hostname = true;
         }
         else {
             hostname = actions.host.clone();
@@ -118,12 +123,19 @@ impl ControlManager {
             eprintln!("Please enter username to authenticate with:");
             std::io::stdin().read_line(&mut username).expect("Error reading username from std input");
             username = username.trim().to_string();
+
+            asked_for_username = true;
         }
         else {
             username = actions.user.clone();
         }
 
-        println!("Enter password:");
+        if !asked_for_hostname {
+            println!("Enter password for user '{}' on host '{}':", &username, &host_target);
+        }
+        else {
+            println!("Enter password:");
+        }
         let password = read_password().unwrap();
 
         // Now configure ControlSessionParams properly here...
@@ -183,10 +195,23 @@ impl ControlManager {
                 ControlActionType::DownloadFile => {
                     provider.download_file(&mut connection, action)
                 },
+                ControlActionType::TransmitFile => {
+                    provider.transmit_file(&mut connection, action)
+                },
+                ControlActionType::CreateSymlink => {
+                    provider.create_symlink(&mut connection, action)
+                },
                 ControlActionType::NotSet | ControlActionType::Unrecognised => {
                    ActionResult::Failed("Invalid Action Type".to_string())
                 }
             };
+
+            if result == ActionResult::NotImplemented {
+                eprintln!("Error running action ${} : {}... - the action provider does not implement this action...",
+                            count, action.action);
+                success = false;
+                break;
+            }
 
             if result != ActionResult::Success {
                 eprintln!("Error running action #{} : {}...", count, action.action);

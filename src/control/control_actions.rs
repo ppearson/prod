@@ -38,6 +38,8 @@ pub enum ControlActionType {
     EditFile,
     CopyPath,
     DownloadFile,
+    TransmitFile,
+    CreateSymlink
 }
 
 impl fmt::Display for ControlActionType {
@@ -53,6 +55,8 @@ impl fmt::Display for ControlActionType {
             ControlActionType::EditFile         => write!(f, "editFile"),
             ControlActionType::CopyPath         => write!(f, "copyPath"),
             ControlActionType::DownloadFile     => write!(f, "downloadFile"),
+            ControlActionType::TransmitFile     => write!(f, "transmitFile"),
+            ControlActionType::CreateSymlink    => write!(f, "createSymlink"),
         }
     }
 }
@@ -222,6 +226,8 @@ impl ControlActions {
             "editFile" =>           ControlActionType::EditFile,
             "copyPath" =>           ControlActionType::CopyPath,
             "downloadFile" =>       ControlActionType::DownloadFile,
+            "transmitFile" =>       ControlActionType::TransmitFile,
+            "createSymlink" =>      ControlActionType::CreateSymlink,
             _ =>                    ControlActionType::Unrecognised
         };
 
@@ -263,35 +269,43 @@ pub trait ActionProvider {
         return "".to_string();
     }
 
-    fn add_user(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
+    fn add_user(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 
-    fn create_directory(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
+    fn create_directory(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 
-    fn install_packages(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
+    fn install_packages(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 
-    fn systemctrl(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
+    fn systemctrl(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 
-    fn firewall(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
+    fn firewall(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 
-    fn edit_file(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
+    fn edit_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 
-    fn copy_path(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
+    fn copy_path(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 
-    fn download_file(&self, _connection: &mut ControlSession, _params: &ControlAction) -> ActionResult {
+    fn download_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
+        return ActionResult::NotImplemented;
+    }
+
+    fn transmit_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
+        return ActionResult::NotImplemented;
+    }
+
+    fn create_symlink(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 

@@ -19,6 +19,7 @@ use super::control_actions::{ActionProvider, ActionResult, ControlAction};
 use super::control_common::{ControlSession, ControlSessionParams, UserType};
 use super::terminal_helpers_linux;
 
+use std::path::Path;
 use std::collections::BTreeMap;
 
 use rpassword::read_password;
@@ -57,22 +58,22 @@ impl ActionProvider for AProviderLinuxDebian {
         return "linux_debian".to_string();
     }
 
-    fn add_user(&self, connection: &mut ControlSession, params: &ControlAction) -> ActionResult {
+    fn add_user(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         // validate params
-        if !params.params.has_value("username") || !params.params.has_value("password") {
+        if !action.params.has_value("username") || !action.params.has_value("password") {
             return ActionResult::InvalidParams;
         }
 
         let mut useradd_command_options = String::new();
 
-        let user = params.params.get_string_value("username").unwrap();
-        let mut password = params.params.get_string_value("password").unwrap();
+        let user = action.params.get_string_value("username").unwrap();
+        let mut password = action.params.get_string_value("password").unwrap();
         if password == "$PROMPT" {
             eprintln!("Please enter password to set for user:");
             password = read_password().unwrap();
         }
 
-        let create_home = params.params.get_value_as_bool("createHome", true);
+        let create_home = action.params.get_value_as_bool("createHome", true);
 
         if create_home {
             useradd_command_options.push_str("-m ");
@@ -82,7 +83,7 @@ impl ActionProvider for AProviderLinuxDebian {
             useradd_command_options.push_str("-M ");
         }
 
-        let shell = params.params.get_string_value_with_default("shell", "/bin/bash");
+        let shell = action.params.get_string_value_with_default("shell", "/bin/bash");
         useradd_command_options.push_str(&format!("-s {}", shell));
 
         let useradd_full_command = format!("useradd {} {}", useradd_command_options, user);
@@ -102,13 +103,13 @@ impl ActionProvider for AProviderLinuxDebian {
 
         // now add user to any groups
         // see if there's just a single group...
-        if params.params.has_value("group") {
-            let usermod_command = format!("usermod -aG {} {}", params.params.get_string_value_with_default("group", ""), user);
+        if action.params.has_value("group") {
+            let usermod_command = format!("usermod -aG {} {}", action.params.get_string_value_with_default("group", ""), user);
             connection.conn.send_command(&self.post_process_command(&usermod_command));
         }
-        else if params.params.has_value("groups") {
+        else if action.params.has_value("groups") {
             // there's multiple
-            let groups = params.params.get_values_as_vec_of_strings("groups");
+            let groups = action.params.get_values_as_vec_of_strings("groups");
             for group in groups {
                 let usermod_command = format!("usermod -aG {} {}", group, user);
                 connection.conn.send_command(&self.post_process_command(&usermod_command));
@@ -120,27 +121,37 @@ impl ActionProvider for AProviderLinuxDebian {
         return ActionResult::Success;
     }
 
-    fn create_directory(&self, connection: &mut ControlSession, params: &ControlAction) -> ActionResult {
+    fn create_directory(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         // validate params
-        if !params.params.has_value("path") {
+        if !action.params.has_value("path") {
             return ActionResult::InvalidParams;
         }
 
-        let path_to_create = params.params.get_string_value("path").unwrap();
-        let mnkdir_command = format!("mkdir {}", path_to_create);
+        let path_to_create = action.params.get_string_value("path").unwrap();
+
+        // TODO: not sure about this... Maybe it should be called something else, maybe it should
+        //       be the default?
+        let multi_level = action.params.get_value_as_bool("multiLevel", false);
+        let mnkdir_command;
+        if !multi_level {
+            mnkdir_command = format!("mkdir {}", path_to_create);
+        }
+        else {
+            mnkdir_command = format!("mkdir -p {}", path_to_create);
+        }
         connection.conn.send_command(&self.post_process_command(&mnkdir_command));
 
-        if let Some(permissions) = params.params.get_string_or_int_value_as_string("permissions") {
+        if let Some(permissions) = action.params.get_string_or_int_value_as_string("permissions") {
             let chmod_command = format!("chmod {} {}", permissions, path_to_create);
             connection.conn.send_command(&self.post_process_command(&chmod_command));
         }
 
-        if let Some(owner) = params.params.get_string_value("owner") {
+        if let Some(owner) = action.params.get_string_value("owner") {
             let chown_command = format!("chown {} {}", owner, path_to_create);
             connection.conn.send_command(&self.post_process_command(&chown_command));
         }
 
-        if let Some(group) = params.params.get_string_value("group") {
+        if let Some(group) = action.params.get_string_value("group") {
             let chgrp_command = format!("chgrp {} {}", group, path_to_create);
             connection.conn.send_command(&self.post_process_command(&chgrp_command));
         }
@@ -150,17 +161,17 @@ impl ActionProvider for AProviderLinuxDebian {
         return ActionResult::Success;
     }
 
-    fn install_packages(&self, connection: &mut ControlSession, params: &ControlAction) -> ActionResult {
+    fn install_packages(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         // use apt-get, because the commands for that will apparently be much more stable, compared to apt
         // which might change as it's designed to be more user-facing...
 
         let packages_string;
-        if let Some(package) = params.params.get_string_value("package") {
+        if let Some(package) = action.params.get_string_value("package") {
             // single package for convenience...
             packages_string = package;
         }
-        else if params.params.has_value("packages") {
-            let packages = params.params.get_values_as_vec_of_strings("packages");
+        else if action.params.has_value("packages") {
+            let packages = action.params.get_values_as_vec_of_strings("packages");
             packages_string = packages.join(" ");
         }
         else {
@@ -174,7 +185,7 @@ impl ActionProvider for AProviderLinuxDebian {
         // with some providers (Vultr), apt-get runs automatically just after the instance first starts,
         // so we can't run apt-get manually, as the lock file is locked, so wait until apt-get has stopped running
         // by default... 
-        let wait_for_apt_get_lockfile = params.params.get_value_as_bool("waitForPMToFinish", true);
+        let wait_for_apt_get_lockfile = action.params.get_value_as_bool("waitForPMToFinish", true);
         if wait_for_apt_get_lockfile {
             let mut try_count = 0;
             while try_count < 20 {
@@ -201,7 +212,7 @@ impl ActionProvider for AProviderLinuxDebian {
 
         // by default, update the list of packages, as with some providers,
         // this needs to be done first, otherwise packages can't be found...
-        let update_packages = params.params.get_value_as_bool("update", true);
+        let update_packages = action.params.get_value_as_bool("update", true);
         if update_packages {
             let apt_get_command = format!("apt-get -y update");
             connection.conn.send_command(&self.post_process_command(&apt_get_command));
@@ -219,14 +230,14 @@ impl ActionProvider for AProviderLinuxDebian {
         return ActionResult::Success;
     }
 
-    fn systemctrl(&self, connection: &mut ControlSession, params: &ControlAction) -> ActionResult {
+    fn systemctrl(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         // validate params
-        if !params.params.has_value("action") || !params.params.has_value("service") {
+        if !action.params.has_value("action") || !action.params.has_value("service") {
             return ActionResult::InvalidParams;
         }
 
-        let service = params.params.get_string_value("service").unwrap();
-        let action = params.params.get_string_value("action").unwrap();
+        let service = action.params.get_string_value("service").unwrap();
+        let action = action.params.get_string_value("action").unwrap();
 
         let systemctrl_command = format!("systemctl {} {}", action, service);
         
@@ -235,8 +246,8 @@ impl ActionProvider for AProviderLinuxDebian {
         return ActionResult::Success;
     }
 
-    fn firewall(&self, connection: &mut ControlSession, params: &ControlAction) -> ActionResult {
-        let firewall_type = params.params.get_string_value_with_default("type", "ufw");
+    fn firewall(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        let firewall_type = action.params.get_string_value_with_default("type", "ufw");
         if firewall_type != "ufw" {
             // only support this type for the moment...
             return ActionResult::InvalidParams;
@@ -246,14 +257,14 @@ impl ActionProvider for AProviderLinuxDebian {
         // in theory we should probably be more type-specific, and 'schema'd', but given there
         // are aliases for rules, it'd be quite complicated to handle that I think, so better
         // for the moment to allow freeform strings...
-        let rules = params.params.get_values_as_vec_of_strings("rules");
+        let rules = action.params.get_values_as_vec_of_strings("rules");
         for rule in rules {
             let ufw_command = format!("ufw {}", rule);
             connection.conn.send_command(&self.post_process_command(&ufw_command));
         }
 
-        if params.params.has_value("enabled") {
-            let is_enabled = params.params.get_value_as_bool("enabled", true);
+        if action.params.has_value("enabled") {
+            let is_enabled = action.params.get_value_as_bool("enabled", true);
             let ufw_command = format!("ufw --force {}", if is_enabled { "enable" } else { "disable"});
             connection.conn.send_command(&self.post_process_command(&ufw_command));
         }
@@ -262,14 +273,14 @@ impl ActionProvider for AProviderLinuxDebian {
     }
 
     // TODO: this is pretty nasty and hacky, but works for all cases I want so far...
-    fn edit_file(&self, connection: &mut ControlSession, params: &ControlAction) -> ActionResult {
-        let filepath = params.params.get_string_value("filepath");
+    fn edit_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        let filepath = action.params.get_string_value("filepath");
         if filepath.is_none() {
             return ActionResult::InvalidParams;
         }
 
-        let replace_line_items = extract_edit_line_entry_items(&params.params, "replaceLine", &process_replace_line_entry);
-        let insert_line_items = extract_edit_line_entry_items(&params.params, "insertLine", &process_insert_line_entry);
+        let replace_line_items = extract_edit_line_entry_items(&action.params, "replaceLine", &process_replace_line_entry);
+        let insert_line_items = extract_edit_line_entry_items(&action.params, "insertLine", &process_insert_line_entry);
         if replace_line_items.is_empty() && insert_line_items.is_empty() {
             eprintln!("Error: editFile Control Action had no items to perform...");
             return ActionResult::InvalidParams;
@@ -277,7 +288,7 @@ impl ActionProvider for AProviderLinuxDebian {
 
         let filepath = filepath.unwrap();
         
-        if params.params.get_value_as_bool("backup", false) {
+        if action.params.get_value_as_bool("backup", false) {
             // TODO: something more robust than this...
             let mv_command = format!("cp {0} {0}.bak", filepath);
             connection.conn.send_command(&self.post_process_command(&mv_command));
@@ -383,7 +394,7 @@ impl ActionProvider for AProviderLinuxDebian {
             mode = i32::from_str_radix(&stat_d.0, 8).unwrap();
         }
         else {
-            mode = i32::from_str_radix("644", 8).unwrap();
+            mode = 0o644;
             eprintln!("Can't extract stat details from file. Using 644 as default permissions mode.");
         }
         
@@ -397,21 +408,21 @@ impl ActionProvider for AProviderLinuxDebian {
         return ActionResult::Success;
     }
 
-    fn copy_path(&self, connection: &mut ControlSession, params: &ControlAction) -> ActionResult {
-        let source_path = params.params.get_string_value("sourcePath");
+    fn copy_path(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        let source_path = action.params.get_string_value("sourcePath");
         if source_path.is_none() {
             return ActionResult::InvalidParams;
         }
         let source_path = source_path.unwrap();
 
-        let dest_path = params.params.get_string_value("destPath");
+        let dest_path = action.params.get_string_value("destPath");
         if dest_path.is_none() {
             return ActionResult::InvalidParams;
         }
         let dest_path = dest_path.unwrap();
 
-        let recursive = params.params.get_value_as_bool("recursive", false);
-        let update = params.params.get_value_as_bool("update", false);
+        let recursive = action.params.get_value_as_bool("recursive", false);
+        let update = action.params.get_value_as_bool("update", false);
 
         let mut option_flags = String::new();
         if recursive {
@@ -428,14 +439,14 @@ impl ActionProvider for AProviderLinuxDebian {
         return ActionResult::Success;
     }
 
-    fn download_file(&self, connection: &mut ControlSession, params: &ControlAction) -> ActionResult {
-        let source_url = params.params.get_string_value("sourceURL");
+    fn download_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        let source_url = action.params.get_string_value("sourceURL");
         if source_url.is_none() {
             return ActionResult::InvalidParams;
         }
         let source_url = source_url.unwrap();
 
-        let dest_path = params.params.get_string_value("destPath");
+        let dest_path = action.params.get_string_value("destPath");
         if dest_path.is_none() {
             return ActionResult::InvalidParams;
         }
@@ -444,6 +455,103 @@ impl ActionProvider for AProviderLinuxDebian {
         // use wget (maybe curl backup?) for the moment
         let wget_command = format!("wget {} -O {}", source_url, dest_path);
         connection.conn.send_command(&self.post_process_command(&wget_command));
+
+        if let Some(permissions) = action.params.get_string_or_int_value_as_string("permissions") {
+            let chmod_command = format!("chmod {} {}", permissions, dest_path);
+            connection.conn.send_command(&self.post_process_command(&chmod_command));
+        }
+
+        if let Some(owner) = action.params.get_string_value("owner") {
+            let chown_command = format!("chown {} {}", owner, dest_path);
+            connection.conn.send_command(&self.post_process_command(&chown_command));
+        }
+
+        if let Some(group) = action.params.get_string_value("group") {
+            let chgrp_command = format!("chgrp {} {}", group, dest_path);
+            connection.conn.send_command(&self.post_process_command(&chgrp_command));
+        }
+
+        return ActionResult::Success;
+    }
+
+    fn transmit_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        // local source path
+        // TODO: not sure about this naming...
+        let source_path = action.params.get_string_value("localSourcePath");
+        if source_path.is_none() {
+            return ActionResult::InvalidParams;
+        }
+        let source_path = source_path.unwrap();
+
+        // remote destination path
+        let dest_path = action.params.get_string_value("remoteDestPath");
+        if dest_path.is_none() {
+            return ActionResult::InvalidParams;
+        }
+        let dest_path = dest_path.unwrap();
+
+        let mut mode = 0o644;
+        if let Some(permissions) = action.params.get_string_or_int_value_as_string("permissions") {
+            mode = i32::from_str_radix(&permissions, 8).unwrap();
+        }
+
+        let send_res = connection.conn.send_file(&source_path, &dest_path, mode);
+        if send_res.is_err() {
+            return ActionResult::Failed("".to_string());
+        }
+
+        if let Some(owner) = action.params.get_string_value("owner") {
+            let chown_command = format!("chown {} {}", owner, dest_path);
+            connection.conn.send_command(&self.post_process_command(&chown_command));
+        }
+
+        if let Some(group) = action.params.get_string_value("group") {
+            let chgrp_command = format!("chgrp {} {}", group, dest_path);
+            connection.conn.send_command(&self.post_process_command(&chgrp_command));
+        }
+
+        return ActionResult::Success;
+    }
+
+    fn create_symlink(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        let target_path = action.params.get_string_value("targetPath");
+        if target_path.is_none() {
+            return ActionResult::InvalidParams;
+        }
+        let target_path = target_path.unwrap();
+
+        // link name / path
+        let link_path = action.params.get_string_value("linkPath");
+        if link_path.is_none() {
+            return ActionResult::InvalidParams;
+        }
+        let link_path = link_path.unwrap();
+
+        let link_dir = Path::new(&link_path);
+        // TODO: error handling - and this might be a directory?
+        let link_name = link_dir.file_name().unwrap();
+        let link_dir = link_dir.parent().unwrap().to_str().unwrap();
+
+        // Note: currently this will have to be true I think, otherwise we'd be creating the link
+        //       in the current working directory which is likely to be unhelpful...
+        if link_path.contains('/') {     
+            let cd_command = format!("cd {}", link_dir);
+            connection.conn.send_command(&self.post_process_command(&cd_command));
+
+            // check there was no error response
+            if let Some(str) = connection.conn.get_previous_stderr_response() {
+                println!("create_symlink error: {}", str);
+                return ActionResult::Failed(str.to_string());
+            }
+        }
+
+        let ln_command = format!("ln -s {} {}", target_path, link_name.to_str().unwrap());
+        connection.conn.send_command(&self.post_process_command(&ln_command));
+
+        if let Some(str) = connection.conn.get_previous_stderr_response() {
+            println!("create_symlink error: {}", str);
+            return ActionResult::Failed(str.to_string());
+        }
 
         return ActionResult::Success;
     }

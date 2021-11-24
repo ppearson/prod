@@ -101,6 +101,9 @@ impl ControlConnectionSSH {
         let byte_contents = contents.as_bytes();
 
         let mut remote_file = self.session.scp_send(Path::new(&filepath), mode, byte_contents.len() as u64, None).unwrap();
+        
+        // TODO: there seems to be a 32kb limit here in practice based on send_file_via_scp() testing, so this might
+        //       need changing to support longer files as well...
         remote_file.write(byte_contents).unwrap();
         // Close the channel and wait for the whole content to be tranferred
         remote_file.send_eof().unwrap();
@@ -108,6 +111,52 @@ impl ControlConnectionSSH {
         remote_file.close().unwrap();
         remote_file.wait_close().unwrap();
         
+        return Ok(());
+    }
+
+    pub fn send_file_via_scp(&self, local_filepath: &str, dest_filepath: &str, mode: i32) -> Result<(), ()> {
+        if !std::path::Path::new(local_filepath).exists() {
+            return Err(());
+        }
+
+        let file_size = std::fs::metadata(&local_filepath).unwrap().len();
+
+        let mut remote_file = self.session.scp_send(Path::new(dest_filepath), mode, file_size as u64, None).unwrap();
+
+        let mut file = std::fs::File::open(local_filepath).unwrap();
+        const BUFFER_SIZE: usize = 16 * 1024;
+        let mut buffer = Vec::with_capacity(BUFFER_SIZE);
+        loop {
+            let bytes_read = std::io::Read::by_ref(&mut file).take(BUFFER_SIZE as u64).read_to_end(&mut buffer).unwrap();
+            if bytes_read == 0 {
+                break;
+            }
+
+            let bytes_written = remote_file.write(&buffer);
+            if bytes_written.is_ok() {
+                let bytes_written = bytes_written.unwrap();
+                assert!(bytes_written == bytes_read);
+
+                if bytes_read < BUFFER_SIZE {
+                    break;
+                }
+                
+                // buffer is extended each time read_to_end() is called, so we need this.
+                // In theory, it should be very cheap, as it doesn't de-allocate the memory...
+                buffer.clear();
+            }
+            else {
+                eprintln!("Error writing file to SSH session...");
+                return Err(());
+            }
+        }
+
+        // Close the channel and wait for the whole content to be tranferred
+        remote_file.send_eof().unwrap();
+        remote_file.wait_eof().unwrap();
+        remote_file.close().unwrap();
+        remote_file.wait_close().unwrap();
+
         return Ok(());
     }
 }
@@ -143,5 +192,11 @@ impl ControlConnection for ControlConnectionSSH {
     fn send_text_file_contents(&self, filepath: &str, mode: i32, contents: &str) -> Result<(), ()> {
         return self.send_text_file_contents_via_scp(filepath, mode, contents);
     }
+
+    fn send_file(&self, local_filepath: &str, dest_filepath: &str, mode: i32) -> Result<(), ()> {
+        return self.send_file_via_scp(local_filepath, dest_filepath, mode);
+    }
+
+
     
 }
