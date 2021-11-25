@@ -1,0 +1,9 @@
+---
+ provider: linux_debian
+ host: localhost
+ user: peter
+ actions:
+ - transmitFile:
+    localSourcePath: /home/peter/render1.png
+    remoteDestPath: /home/peter/test_transmit11.png
+
