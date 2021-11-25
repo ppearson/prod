@@ -15,8 +15,8 @@ ssh2 = { version = "0.9", optional = true }
 rpassword = "5.0"
 
 [features]
-#default = ["ssh"]
-default = []
+default = ["ssh"]
+#default = []
 provision = []
 control = []
 ssh = ["ssh2"]
