@@ -171,6 +171,9 @@ impl ControlManager {
             //       there's actually a benefit to doing it that way...
 
             let result = match action.action {
+                ControlActionType::GenericCommand => {
+                    provider.generic_command(&mut connection, action)
+                },
                 ControlActionType::AddUser => {
                     provider.add_user(&mut connection, action)
                 },
@@ -207,14 +210,28 @@ impl ControlManager {
             };
 
             if result == ActionResult::NotImplemented {
-                eprintln!("Error running action ${} : {}... - the action provider does not implement this action...",
+                eprintln!("Error running action index {} : {} - the action provider does not implement this action...",
                             count, action.action);
                 success = false;
                 break;
             }
 
+            if let ActionResult::InvalidParams(str) = result {
+                eprintln!("Error running action index {} : {} - invalid parameters were provided for this action: {}",
+                            count, action.action, str);
+                success = false;
+                break;
+            }
+
+            if let ActionResult::Failed(str) = result {
+                eprintln!("Error running action index {} : {} - {}",
+                            count, action.action, str);
+                success = false;
+                break;
+            }
+
             if result != ActionResult::Success {
-                eprintln!("Error running action #{} : {}...", count, action.action);
+                eprintln!("Error running action index {} : {} - ...", count, action.action);
                 success = false;
                 break;
             }

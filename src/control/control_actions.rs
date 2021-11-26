@@ -30,6 +30,7 @@ use super::control_common::{ControlSession};
 pub enum ControlActionType {
     NotSet,
     Unrecognised,
+    GenericCommand,
     AddUser,
     CreateDirectory,
     PackagesInstall,
@@ -47,6 +48,7 @@ impl fmt::Display for ControlActionType {
         match self {
             ControlActionType::NotSet           => write!(f, "None"),
             ControlActionType::Unrecognised     => write!(f, "Unrecognised"),
+            ControlActionType::GenericCommand   => write!(f, "genericCommand"),
             ControlActionType::AddUser          => write!(f, "addUser"),
             ControlActionType::CreateDirectory  => write!(f, "createDirectory"),
             ControlActionType::PackagesInstall  => write!(f, "packagesInstall"),
@@ -73,7 +75,7 @@ impl Ord for ControlActionType {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ActionResult {
     NotImplemented,
-    InvalidParams,
+    InvalidParams(String),
     CantConnect,
     AuthenticationIssue,
     Failed(String),
@@ -218,6 +220,7 @@ impl ControlActions {
         // TODO: do this properly, with a registry which maps the name to the Impl derived item...
 
         new_action.action = match name {
+            "genericCommand" =>     ControlActionType::GenericCommand,
             "addUser" =>            ControlActionType::AddUser,
             "createDirectory" =>    ControlActionType::CreateDirectory,
             "packagesInstall" =>    ControlActionType::PackagesInstall,
@@ -267,6 +270,10 @@ pub trait ActionProvider {
     // not sure about this one - ideally it'd be static, but...
     fn name(&self) -> String {
         return "".to_string();
+    }
+
+    fn generic_command(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
+        return ActionResult::NotImplemented;
     }
 
     fn add_user(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {

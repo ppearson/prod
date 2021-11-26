@@ -58,10 +58,29 @@ impl ActionProvider for AProviderLinuxDebian {
         return "linux_debian".to_string();
     }
 
+    fn generic_command(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        if !action.params.has_value("command") {
+            return ActionResult::InvalidParams("The 'command' parameter was not specified.".to_string());
+        }
+
+        let command = action.params.get_string_value("command").unwrap();
+        if !command.is_empty() {
+            connection.conn.send_command(&self.post_process_command(&command));
+        }
+
+        // TODO: check if there's a 'errorIfStdErrOutputExists' param, and if so
+        //       validate what the output of the command was...
+
+        return ActionResult::Success;
+    }
+
     fn add_user(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         // validate params
-        if !action.params.has_value("username") || !action.params.has_value("password") {
-            return ActionResult::InvalidParams;
+        if !action.params.has_value("username") {
+            return ActionResult::InvalidParams("The 'username' parameter was not specified.".to_string());
+        }
+        if  !action.params.has_value("password") {
+            return ActionResult::InvalidParams("The 'password' parameter was not specified.".to_string());
         }
 
         let mut useradd_command_options = String::new();
@@ -124,7 +143,7 @@ impl ActionProvider for AProviderLinuxDebian {
     fn create_directory(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         // validate params
         if !action.params.has_value("path") {
-            return ActionResult::InvalidParams;
+            return ActionResult::InvalidParams("The 'path' parameter was not specified.".to_string());
         }
 
         let path_to_create = action.params.get_string_value("path").unwrap();
@@ -175,11 +194,11 @@ impl ActionProvider for AProviderLinuxDebian {
             packages_string = packages.join(" ");
         }
         else {
-            return ActionResult::InvalidParams;
+            return ActionResult::InvalidParams("No 'package' string parameter or 'packages' string array parameter were specified.".to_string());
         }
 
         if packages_string.is_empty() {
-            return ActionResult::InvalidParams;
+            return ActionResult::InvalidParams("The 'packages' string list was empty.".to_string());
         }
 
         // with some providers (Vultr), apt-get runs automatically just after the instance first starts,
@@ -233,7 +252,7 @@ impl ActionProvider for AProviderLinuxDebian {
     fn systemctrl(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         // validate params
         if !action.params.has_value("action") || !action.params.has_value("service") {
-            return ActionResult::InvalidParams;
+            return ActionResult::InvalidParams("".to_string());
         }
 
         let service = action.params.get_string_value("service").unwrap();
@@ -250,7 +269,7 @@ impl ActionProvider for AProviderLinuxDebian {
         let firewall_type = action.params.get_string_value_with_default("type", "ufw");
         if firewall_type != "ufw" {
             // only support this type for the moment...
-            return ActionResult::InvalidParams;
+            return ActionResult::InvalidParams("".to_string());
         }
 
         // incredibly basic for the moment...
@@ -276,14 +295,14 @@ impl ActionProvider for AProviderLinuxDebian {
     fn edit_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         let filepath = action.params.get_string_value("filepath");
         if filepath.is_none() {
-            return ActionResult::InvalidParams;
+            return ActionResult::InvalidParams("The 'filepath' parameter was not specified.".to_string());
         }
 
         let replace_line_items = extract_edit_line_entry_items(&action.params, "replaceLine", &process_replace_line_entry);
         let insert_line_items = extract_edit_line_entry_items(&action.params, "insertLine", &process_insert_line_entry);
         if replace_line_items.is_empty() && insert_line_items.is_empty() {
             eprintln!("Error: editFile Control Action had no items to perform...");
-            return ActionResult::InvalidParams;
+            return ActionResult::InvalidParams("".to_string());
         }
 
         let filepath = filepath.unwrap();
@@ -411,13 +430,13 @@ impl ActionProvider for AProviderLinuxDebian {
     fn copy_path(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         let source_path = action.params.get_string_value("sourcePath");
         if source_path.is_none() {
-            return ActionResult::InvalidParams;
+            return ActionResult::InvalidParams("The 'sourcePath' parameter was not specified.".to_string());
         }
         let source_path = source_path.unwrap();
 
         let dest_path = action.params.get_string_value("destPath");
         if dest_path.is_none() {
-            return ActionResult::InvalidParams;
+            return ActionResult::InvalidParams("The 'destPath' parameter was not specified.".to_string());
         }
         let dest_path = dest_path.unwrap();
 
@@ -442,13 +461,13 @@ impl ActionProvider for AProviderLinuxDebian {
     fn download_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         let source_url = action.params.get_string_value("sourceURL");
         if source_url.is_none() {
-            return ActionResult::InvalidParams;
+            return ActionResult::InvalidParams("The 'sourceURL' parameter was not specified.".to_string());
         }
         let source_url = source_url.unwrap();
 
         let dest_path = action.params.get_string_value("destPath");
         if dest_path.is_none() {
-            return ActionResult::InvalidParams;
+            return ActionResult::InvalidParams("The 'destPath' parameter was not specified.".to_string());
         }
         let dest_path = dest_path.unwrap();
 
@@ -479,14 +498,14 @@ impl ActionProvider for AProviderLinuxDebian {
         // TODO: not sure about this naming...
         let source_path = action.params.get_string_value("localSourcePath");
         if source_path.is_none() {
-            return ActionResult::InvalidParams;
+            return ActionResult::InvalidParams("The 'localSourcePath' parameter was not specified.".to_string());
         }
         let source_path = source_path.unwrap();
 
         // remote destination path
         let dest_path = action.params.get_string_value("remoteDestPath");
         if dest_path.is_none() {
-            return ActionResult::InvalidParams;
+            return ActionResult::InvalidParams("The 'remoteDestPath' parameter was not specified.".to_string());
         }
         let dest_path = dest_path.unwrap();
 
@@ -516,14 +535,14 @@ impl ActionProvider for AProviderLinuxDebian {
     fn create_symlink(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         let target_path = action.params.get_string_value("targetPath");
         if target_path.is_none() {
-            return ActionResult::InvalidParams;
+            return ActionResult::InvalidParams("The 'targetPath' parameter was not specified.".to_string());
         }
         let target_path = target_path.unwrap();
 
         // link name / path
         let link_path = action.params.get_string_value("linkPath");
         if link_path.is_none() {
-            return ActionResult::InvalidParams;
+            return ActionResult::InvalidParams("The 'linkPath' parameter was not specified.".to_string());
         }
         let link_path = link_path.unwrap();
 
