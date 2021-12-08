@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 use crate::provision::provision_provider::{ProvisionProvider};
-use crate::provision::provision_common::{ProvisionActionType, ProvisionActionResult, ActionResultValues};
+use crate::provision::provision_common::{ActionResultValues, ProvisionActionResult, ProvisionActionType, ProvisionResponseWaitType};
 use crate::provision::provision_manager::{ListType};
 use crate::provision::provision_params::{ProvisionParams};
 
@@ -67,6 +67,28 @@ struct OSResultItem {
 #[derive(Serialize, Deserialize)]
 struct OSListResults {
     os: Vec<OSResultItem>
+}
+
+#[derive(Serialize, Deserialize)]
+struct InstanceDetails {
+    instance: InstanceDetailsInner,
+}
+
+#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize)]
+struct InstanceDetailsInner {
+    id:             String,
+    os:             String,
+    ram:            u32,
+    disk:           u32,
+    vcpu_count:     u32,
+
+    main_ip:        String,
+    v6_main_ip:     String,
+
+    status:         String, // "active", "pending"
+    power_status:   String, // "stopped", "running"
+    server_status:  String, // "none", "locked", "installingbooting", // we never see this: "ok"
 }
 
 pub struct ProviderVultr {
@@ -311,57 +333,82 @@ impl ProvisionProvider for ProviderVultr {
             return ProvisionActionResult::Failed("".to_string());
         }
 
-        eprintln!("Vultr instance created...");
-        eprintln!("Waiting for instance to spool up with IP address...");
+        let instance_id = result_values.values.get("id").unwrap().clone();
+
+        eprintln!("Vultr instance created, id: {} ...", instance_id.to_string());
+
+        if params.wait_type == ProvisionResponseWaitType::ReturnImmediatelyAfterAPIRequest {
+            return ProvisionActionResult::ActionCreatedInProgress(result_values);
+        }
+
+        eprintln!("Waiting for instance to spool up...");
 
         // to get hold of the IP address, we need to do an additional API query to the
         // get instance API as it's still in the process of being spooled up..
 
-        let instance_id = result_values.values.get("id").unwrap();
-
-        let max_tries = 5;
+        let max_tries = 10;
         let mut try_count = 0;
+
+        let mut have_ip = false;
+        let mut installing_booting_count = 0;
 
         while try_count < max_tries {
             // sleep a bit to give things a chance...
             std::thread::sleep(std::time::Duration::from_secs(15));
 
-            let instance_info = self.get_value_map_from_get_instance_call(instance_id);
-            if instance_info.is_err() {
-                return instance_info.err().unwrap();
+            let instance_details = self.get_instance_details(&instance_id);
+            if instance_details.is_err() {
+                eprintln!("Warning: Vultr cloud instance was created, but received an unexpected json response4 from vultr.com for get instance request: {}", resp_string);
+                return instance_details.err().unwrap();
             }
-            let instance_info_map = instance_info.unwrap();
+            let instance_details = instance_details.unwrap().instance;
 
-            // extract the values we want
-            let main_ip_val = instance_info_map.get("main_ip");
-            match main_ip_val {
-                Some(val) => {
-                    match val.as_str() {
-                        Some("0.0.0.0") => {
-                            // hasn't spun up yet...
-                        },
-                        Some(ip_val) => {
-                            // hopefully the actual IP
-                            result_values.values.insert("ip".to_string(), ip_val.to_string());
-                            // break out as we have it...
-                            break;
-                        },
-                        None => {
-                            // something went wrong...
-                            eprintln!("Error: unexpected json response1 from vultr.com: {}", resp_string);
-                            return ProvisionActionResult::Failed("".to_string());
+//            println!("InstanceDetails (t:{}) \n{:?}\n", try_count, instance_details);
+
+            if !have_ip && instance_details.main_ip != "0.0.0.0" {
+                // we now hopefully have a valid IP
+                result_values.values.insert("ip".to_string(), instance_details.main_ip.clone());
+                have_ip = true;
+
+                // so we now have an IP, but the instance still isn't ready to be used, but maybe that's
+                // all we need...
+                if params.wait_type == ProvisionResponseWaitType::WaitForResourceCreationOrModification {
+                    // this is sufficient, so return out...
+                    return ProvisionActionResult::ActionCreatedInProgress(result_values);
+                }
+
+                eprintln!("Have instance IP: {}", instance_details.main_ip.clone());
+
+                eprintln!("Waiting for server to finish install/setup...");
+            }
+            
+            if params.wait_type == ProvisionResponseWaitType::WaitForResourceFinalised {
+                // check the 'status' and 'server_status' fields.
+                if instance_details.status == "active" && instance_details.power_status == "running" {
+                    // Note: 'server_status' takes a while (~8 mins) to become 'ok', which isn't too helpful,
+                    //       as the instances are generally ready after ~2 mins, at which point the
+                    //       'server_status' value is still 'installingbooting', which is a bit annoying
+                    //       for accurately working out when the instance is actually ready for use.
+
+                    if instance_details.server_status == "installingbooting" {
+                        
+                        // this adds to the general wait time on purpose...
+                        std::thread::sleep(std::time::Duration::from_secs(15));
+
+                        if installing_booting_count > 2 {
+                            // say we're done...
+                            return ProvisionActionResult::ActionCreatedDone(result_values);
                         }
+
+                        installing_booting_count += 1;
                     }
-                    
-                },
-                _ => {
-                    eprintln!("Warning: Vultr cloud instance was created, but received an unexpected json response4 from vultr.com for get instance request - missing 'main_ip' param: {}", resp_string);
                 }
             }
 
             try_count += 1;
         }
         
+        // work out what to do here... technically we have an instance, so...
         return ProvisionActionResult::ActionCreatedInProgress(result_values);
     }
 
@@ -419,7 +466,7 @@ impl ProvisionProvider for ProviderVultr {
 }
 
 impl ProviderVultr {
-    fn get_value_map_from_get_instance_call(&self, instance_id: &str) -> Result<serde_json::Value, ProvisionActionResult> {
+    fn get_instance_details(&self, instance_id: &str) -> Result<InstanceDetails, ProvisionActionResult> {
         let url = format!("https://api.vultr.com/v2/instances/{}", &instance_id);
         let get_instance_response = ureq::get(&url)
             .set("Authorization", &format!("Bearer {}", self.vultr_api_key))
@@ -432,26 +479,14 @@ impl ProviderVultr {
         }
 
         let resp_string = get_instance_response.unwrap().into_string().unwrap();
-        let parsed_response = serde_json::from_str::<Value>(&resp_string);
-        if parsed_response.is_err() {
+
+        let instance_details = serde_json::from_str(&resp_string);
+        if instance_details.is_err() {
             eprintln!("Error parsing json response from Vultr.com for get instance call: {}", resp_string);
             return Err(ProvisionActionResult::Failed("".to_string()));
         }
+        let instance_details: InstanceDetails = instance_details.unwrap();
 
-        let parsed_value_map = parsed_response.ok().unwrap();
-        if parsed_value_map.is_object() {
-            let value_as_object = parsed_value_map.as_object().unwrap();
-            // we only expect 1 actual instance value...
-            let instance_map = value_as_object.get("instance");
-            if instance_map.is_none() {
-                eprintln!("Error: unexpected json response2 from Vultr.com for get instance call: {}", resp_string);
-                return Err(ProvisionActionResult::Failed("".to_string()));
-            }
-            let instance_map = instance_map.unwrap().clone();
-
-            return Ok(instance_map);
-        }
-
-        return Err(ProvisionActionResult::Failed("".to_string()))
+        return Ok(instance_details);
     }
 }

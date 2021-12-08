@@ -44,12 +44,12 @@ impl fmt::Display for ProvisionParams {
 impl ProvisionParams {
     pub fn new() -> ProvisionParams {
         ProvisionParams { provider: String::new(), action: ProvisionActionType::NotSet,
-            wait_type: ProvisionResponseWaitType::WaitForResourceCreationOrModification, values: BTreeMap::new() }
+            wait_type: ProvisionResponseWaitType::WaitForResourceFinalised, values: BTreeMap::new() }
     }
 
     pub fn from_details(provider: &str, action: ProvisionActionType) -> ProvisionParams {
         ProvisionParams { provider: provider.to_string(), action,
-            wait_type: ProvisionResponseWaitType::WaitForResourceCreationOrModification, values: BTreeMap::new() }
+            wait_type: ProvisionResponseWaitType::WaitForResourceFinalised, values: BTreeMap::new() }
     }
 
     // TODO: something a bit better than this? Not really sure what though? Use a Result to indicate

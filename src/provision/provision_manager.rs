@@ -42,6 +42,10 @@ impl ProvisionManager {
     pub fn new() -> ProvisionManager {
         let mut manager = ProvisionManager { registered_providers: Vec::new() };
 
+        // TODO: doing it this way is pretty silly.... we should lazily configure
+        //       providers when needed, not configure them all ahead of time,
+        //       as they each need different env variables / configuration...
+
         let mut new_provider = ProviderDigitalOcean::new();
         new_provider.configure();
         manager.registered_providers.push(Box::new(new_provider));
