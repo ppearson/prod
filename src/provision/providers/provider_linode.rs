@@ -15,13 +15,12 @@
 
 use ureq;
 use ureq::Error;
-use serde_json::{Value};
 use serde::{Deserialize, Serialize};
 
 use std::collections::BTreeSet;
 
 use crate::provision::provision_provider::{ProvisionProvider};
-use crate::provision::provision_common::{ProvisionActionType, ProvisionActionResult, ActionResultValues};
+use crate::provision::provision_common::{ActionResultValues, ProvisionActionResult, ProvisionActionType, ProvisionResponseWaitType};
 use crate::provision::provision_manager::{ListType};
 use crate::provision::provision_params::{ProvisionParams};
 
@@ -65,6 +64,20 @@ struct ImageResultItem {
 #[derive(Serialize, Deserialize)]
 struct ImageListResults {
     data: Vec<ImageResultItem>
+}
+
+#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize)]
+struct InstanceDetails {
+    id:         u64,
+    image:      String,
+
+    ipv4:       Vec<String>,
+    ipv6:       String,
+    
+    label:      String,
+
+    status:     String,
 }
 
 pub struct ProviderLinode {
@@ -196,7 +209,7 @@ impl ProvisionProvider for ProviderLinode {
             params.insert("region");
             params.insert("type");
             params.insert("image");
-//            params.insert("label"); // ? is this correct?
+            params.insert("label");
             params.insert("root_pass");
         }
         params
@@ -259,102 +272,88 @@ impl ProvisionProvider for ProviderLinode {
         }
         
         let resp_string = resp.unwrap().into_string().unwrap();
-        let parsed_response = serde_json::from_str::<Value>(&resp_string);
-        if parsed_response.is_err() {
+
+        let instance_details = serde_json::from_str(&resp_string);
+        if instance_details.is_err() {
             eprintln!("Error parsing json response from linode.com: {}", resp_string);
             return ProvisionActionResult::Failed("".to_string());
         }
 
+        let instance_details: InstanceDetails = instance_details.unwrap();
+
         let mut result_values = ActionResultValues::new();
 
-        let parsed_value_map = parsed_response.ok().unwrap();
-//        eprintln!("Created Linode instance okay:\n{:?}", parsed_value_map);
+        let mut found_ip = false;
 
-        let mut status_str = String::new();
+        // extract the values we want, and check there's roughly valid...
+        // Note: we have to assume the 'id' value is a valid value here, as it's not clear
+        //       what the default serde will provide is (I assume it would error if it's not there?)
+        result_values.values.insert("id".to_string(), instance_details.id.to_string());
 
-        // check it's an array object and other stuff (i.e. check the json is expected)
-        if parsed_value_map.is_object() {
-            let value_as_object = parsed_value_map.as_object().unwrap();
-           
-            // extract the values we want
-            let id_val = value_as_object.get("id");
-            match id_val {
-                Some(val) => {
-                    result_values.values.insert("id".to_string(), val.as_u64().unwrap().to_string());
-                },
-                _ => {
-                    eprintln!("Error: unexpected json response from linode.com - missing 'id' param: {}", resp_string);
-                    return ProvisionActionResult::Failed("".to_string());
-                }
-            }
-            let ip_v4_val = value_as_object.get("ipv4");
-            let mut found_ip = false;
-            match ip_v4_val {
-                Some(val) => {
-                    if val.is_array() {
-                        let ip_array = val.as_array().unwrap();
-                        if ip_array.len() > 0 {
-                            let ip_address = ip_array[0].as_str().unwrap().to_string();
-                            result_values.values.insert("ip".to_string(), ip_address);
-                            found_ip = true;
-                        }
-                    }
-                    
-                },
-                _ => {}
-            }
+        // Note: the root password is specified via the params, so we know it...
+        result_values.values.insert("root_password".to_string(), root_pass_str);
 
-            if !found_ip {
-                eprintln!("Error: couldn't find ipv4 address in json response from Linode to create node:\n{}", resp_string);
-                return ProvisionActionResult::Failed("".to_string());
-            }
-
-            // get status string - it's almost certainly 'provisioning', but we should probably check it just in case
-            let status_val = value_as_object.get("status");
-            match status_val {
-                Some(val) => {
-                    if val.is_string() {
-                        status_str = val.as_str().unwrap().to_string();
-                    }
-                },
-                _ => {}
-            }
-        }
-        else {
-            eprintln!("Error: unexpected json response1 from linode.com: {}", resp_string);
-            return ProvisionActionResult::Failed("".to_string());
+        if !instance_details.ipv4.is_empty() {
+            found_ip = true;
+            result_values.values.insert("ip".to_string(), instance_details.ipv4[0].clone());
         }
 
-        eprintln!("Linode instance node created...");
+        eprintln!("Linode instance node created, id: {} ...", instance_details.id);
 
-        if status_str == "provisioning" {
-            let instance_id = result_values.values.get("id").unwrap();
+        if found_ip {
+            eprintln!("Have instance IP: {}", instance_details.ipv4[0].clone());
+        }
 
-            let max_tries = 5;
+        if params.wait_type == ProvisionResponseWaitType::ReturnImmediatelyAfterAPIRequest {
+            return ProvisionActionResult::ActionCreatedInProgress(result_values);
+        }
+
+        if found_ip && params.wait_type == ProvisionResponseWaitType::WaitForResourceCreationOrModification {
+            // this is sufficient, so return out...
+            return ProvisionActionResult::ActionCreatedInProgress(result_values);
+        }
+
+        eprintln!("Waiting for instance to spool up...");
+
+        if instance_details.status == "provisioning" {
+            let instance_id = result_values.values.get("id").unwrap().clone();
+
+            let max_tries = 10;
             let mut try_count = 0;
 
             while try_count < max_tries {
                 // sleep a bit to give things a chance...
                 std::thread::sleep(std::time::Duration::from_secs(15));
 
-                let instance_info = self.get_value_map_from_get_instance_call(instance_id);
-                if instance_info.is_err() {
-                    return instance_info.err().unwrap();
+                let instance_details = self.get_instance_details(&instance_id);
+                if instance_details.is_err() {
+                    eprintln!("Warning: Linode cloud instance was created, but received an unexpected json response4 from linode.com for get instance request: {}", resp_string);
+                    return instance_details.err().unwrap();
                 }
-                let instance_info_map = instance_info.unwrap();
+                let instance_details = instance_details.unwrap();
 
-                // extract the values we want
-                let main_ip_val = instance_info_map.get("status");
-                match main_ip_val {
-                    Some(val) => {
-                        status_str = val.as_str().unwrap().to_string();
-                        if status_str.as_str() == "running" {
-                            break;
-                        }                        
-                    },
-                    _ => {
-                        eprintln!("Warning: Linode cloud instance was created, but received an unexpected json response4 from linode.com for get instance request - status param not known: {}", resp_string);
+//              println!("InstanceDetails (t:{}) \n{:?}\n", try_count, instance_details);
+
+                if !found_ip && !instance_details.ipv4.is_empty() {
+                    // we now hopefully have a valid IP
+                    found_ip = true;
+                    result_values.values.insert("ip".to_string(), instance_details.ipv4[0].clone());
+
+                    eprintln!("Have instance IP: {}", instance_details.ipv4[0].clone());
+
+                    // so we now have an IP, but the instance still isn't ready to be used, but maybe that's
+                    // all we need...
+                    if params.wait_type == ProvisionResponseWaitType::WaitForResourceCreationOrModification {
+                        // this is sufficient, so return out...
+                        return ProvisionActionResult::ActionCreatedInProgress(result_values);
                     }
+
+                    eprintln!("Waiting for server to finish install/setup...");
+                }
+
+                if instance_details.status == "running" {
+                    // we should be done now...
+                    break;
                 }
 
                 try_count += 1;
@@ -363,10 +362,62 @@ impl ProvisionProvider for ProviderLinode {
         
         return ProvisionActionResult::ActionCreatedDone(result_values);
     }
+
+    fn delete_instance(&self, params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
+        let instance_id = params.get_value("instance_id", "");
+        let full_url = format!("https://api.linode.com/v4/linode/instances/{}", instance_id);
+
+        let resp = ureq::delete(&full_url)
+        .set("Authorization", &format!("Bearer {}", self.linode_api_key))
+            .call();
+
+        // TODO: there's an insane amount of boilerplate error handling and response
+        //       decoding going on here... Try and condense it...
+        
+        // TODO: make some of this re-useable for multiple actions...
+        if resp.is_err() {
+            match resp.err() {
+                Some(Error::Status(code, response)) => {
+                    // server returned an error code we weren't expecting...
+                    match code {
+                        400 => {
+                            eprintln!("Error: Bad request error: {}", response.into_string().unwrap());
+                            return ProvisionActionResult::ErrorAuthenticationIssue("".to_string());
+                        },
+                        401 => {
+                            eprintln!("Error: authentication error with Linode API: {}", response.into_string().unwrap());
+                            return ProvisionActionResult::ErrorAuthenticationIssue("".to_string());
+                        },
+                        404 => {
+                            eprintln!("Error: Not found response from Linode API: {}", response.into_string().unwrap());
+                            return ProvisionActionResult::Failed("".to_string());
+                        }
+                        _ => {
+                            
+                        }
+                    }
+                    eprintln!("Error deleting instance0: code: {}, resp: {:?}", code, response);
+                },
+                Some(e) => {
+                    eprintln!("Error deleting instance1: {:?}", e);
+                }
+                _ => {
+                    // some sort of transport/io error...
+                    eprintln!("Error deleting instance2: ");
+                }
+            }
+            return ProvisionActionResult::Failed("".to_string());
+        }
+        
+        // response should be empty...
+        let _resp_string = resp.unwrap().into_string().unwrap();
+
+        return ProvisionActionResult::ActionCreatedInProgress(ActionResultValues::new());
+    }
 }
 
 impl ProviderLinode {
-    fn get_value_map_from_get_instance_call(&self, instance_id: &str) -> Result<serde_json::Map<String, Value>, ProvisionActionResult> {
+    fn get_instance_details(&self, instance_id: &str) -> Result<InstanceDetails, ProvisionActionResult> {
         let url = format!("https://api.linode.com/v4/linode/instances/{}", &instance_id);
         let get_instance_response = ureq::get(&url)
             .set("Authorization", &format!("Bearer {}", self.linode_api_key))
@@ -379,20 +430,14 @@ impl ProviderLinode {
         }
 
         let resp_string = get_instance_response.unwrap().into_string().unwrap();
-        let parsed_response = serde_json::from_str::<Value>(&resp_string);
-        if parsed_response.is_err() {
+
+        let instance_details = serde_json::from_str(&resp_string);
+        if instance_details.is_err() {
             eprintln!("Error parsing json response from linode.com for get instance call: {}", resp_string);
             return Err(ProvisionActionResult::Failed("".to_string()));
         }
+        let instance_details: InstanceDetails = instance_details.unwrap();
 
-        let parsed_value_map = parsed_response.ok().unwrap();
-        if parsed_value_map.is_object() {
-            let value_as_object = parsed_value_map.as_object().unwrap();
-           
-            let response_map = value_as_object.clone();
-            return Ok(response_map);
-        }
-
-        return Err(ProvisionActionResult::Failed("".to_string()))
+        return Ok(instance_details);
     }
 }

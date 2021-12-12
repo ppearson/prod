@@ -143,9 +143,9 @@ impl ProvisionManager {
             ProvisionActionType::DeleteInstance => {
                 let res = provider_item.delete_instance(params, dry_run);
                 match res.clone() {
-                    ProvisionActionResult::ActionCreatedInProgress(res_values) |
-                    ProvisionActionResult::ActionCreatedDone(res_values) => {
-                        println!("Cloud instance deleted successfully:\n");
+                    ProvisionActionResult::ActionCreatedInProgress(_res_values) |
+                    ProvisionActionResult::ActionCreatedDone(_res_values) => {
+                        println!("Cloud instance deleted successfully.\n");
                     },
                     _ => {       
                     }

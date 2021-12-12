@@ -321,11 +321,8 @@ impl ProvisionProvider for ProviderVultr {
                 }
             }
             let root_password_val = instance_map.get("default_password");
-            match root_password_val {
-                Some(val) => {
-                    result_values.values.insert("root_password".to_string(), val.as_str().unwrap().to_string());
-                },
-                _ => {}
+            if let Some(val) = root_password_val {
+                result_values.values.insert("root_password".to_string(), val.as_str().unwrap().to_string());
             }
         }
         else {
@@ -335,7 +332,7 @@ impl ProvisionProvider for ProviderVultr {
 
         let instance_id = result_values.values.get("id").unwrap().clone();
 
-        eprintln!("Vultr instance created, id: {} ...", instance_id.to_string());
+        eprintln!("Vultr instance created, id: {} ...", instance_id);
 
         if params.wait_type == ProvisionResponseWaitType::ReturnImmediatelyAfterAPIRequest {
             return ProvisionActionResult::ActionCreatedInProgress(result_values);
@@ -370,14 +367,14 @@ impl ProvisionProvider for ProviderVultr {
                 result_values.values.insert("ip".to_string(), instance_details.main_ip.clone());
                 have_ip = true;
 
+                eprintln!("Have instance IP: {}", instance_details.main_ip.clone());
+
                 // so we now have an IP, but the instance still isn't ready to be used, but maybe that's
                 // all we need...
                 if params.wait_type == ProvisionResponseWaitType::WaitForResourceCreationOrModification {
                     // this is sufficient, so return out...
                     return ProvisionActionResult::ActionCreatedInProgress(result_values);
                 }
-
-                eprintln!("Have instance IP: {}", instance_details.main_ip.clone());
 
                 eprintln!("Waiting for server to finish install/setup...");
             }
@@ -395,7 +392,10 @@ impl ProvisionProvider for ProviderVultr {
                         // this adds to the general wait time on purpose...
                         std::thread::sleep(std::time::Duration::from_secs(15));
 
-                        if installing_booting_count > 2 {
+                        // Note: also check we have a valid IP now, as it could be the situation (it has happened once or twice)
+                        //       that provisioning the instance gets stuck, with no IP ever assigned, so we should try and guard
+                        //       against that happening to some degree...
+                        if have_ip && installing_booting_count > 2 {
                             // say we're done...
                             return ProvisionActionResult::ActionCreatedDone(result_values);
                         }
@@ -406,6 +406,10 @@ impl ProvisionProvider for ProviderVultr {
             }
 
             try_count += 1;
+        }
+
+        if !have_ip {
+            eprintln!("Warning: don't have an IP address yet, it's possible something went wrong...");
         }
         
         // work out what to do here... technically we have an instance, so...
@@ -459,7 +463,7 @@ impl ProvisionProvider for ProviderVultr {
         }
         
         // response should be empty...
-        let resp_string = resp.unwrap().into_string().unwrap();
+        let _resp_string = resp.unwrap().into_string().unwrap();
 
         return ProvisionActionResult::ActionCreatedInProgress(ActionResultValues::new());
     }
