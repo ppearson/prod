@@ -180,7 +180,7 @@ impl ControlManager {
                 ControlActionType::CreateDirectory => {
                     provider.create_directory(&mut connection, action)
                 },
-                ControlActionType::PackagesInstall => {
+                ControlActionType::InstallPackages => {
                     provider.install_packages(&mut connection, action)
                 },
                 ControlActionType::SystemCtl => {

@@ -240,7 +240,6 @@ impl ActionProvider for AProviderLinuxDebian {
         let apt_get_command = format!("apt-get -y install {}", packages_string);
         connection.conn.send_command(&self.post_process_command(&apt_get_command));
 
-//        println!("Inst: out: {}", connection.conn.get_previous_stdout_response());
         if let Some(str) = connection.conn.get_previous_stderr_response() {
             println!("installPackages error: {}", str);
             return ActionResult::Failed(str.to_string());

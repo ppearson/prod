@@ -360,7 +360,7 @@ impl ProvisionProvider for ProviderVultr {
             }
             let instance_details = instance_details.unwrap().instance;
 
-//            println!("InstanceDetails (t:{}) \n{:?}\n", try_count, instance_details);
+            println!("InstanceDetails (t:{}) \n{:?}\n", try_count, instance_details);
 
             if !have_ip && instance_details.main_ip != "0.0.0.0" {
                 // we now hopefully have a valid IP
@@ -390,7 +390,7 @@ impl ProvisionProvider for ProviderVultr {
                     if instance_details.server_status == "installingbooting" {
                         
                         // this adds to the general wait time on purpose...
-                        std::thread::sleep(std::time::Duration::from_secs(15));
+                        std::thread::sleep(std::time::Duration::from_secs(5));
 
                         // Note: also check we have a valid IP now, as it could be the situation (it has happened once or twice)
                         //       that provisioning the instance gets stuck, with no IP ever assigned, so we should try and guard

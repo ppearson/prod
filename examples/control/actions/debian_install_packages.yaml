@@ -3,7 +3,7 @@
  host: $PROMPT
  user: $PROMPT
  actions:
- - packagesInstall:
+ - installPackages:
     package: single_package
     packages:
       - package1

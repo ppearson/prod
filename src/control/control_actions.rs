@@ -25,6 +25,7 @@ use crate::common::{FileLoadError};
 use crate::params::{ParamValue, Params};
 use super::control_common::{ControlSession};
 
+// Note: try and keep the convention of <action><item>
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[derive(Copy)]
 pub enum ControlActionType {
@@ -33,7 +34,7 @@ pub enum ControlActionType {
     GenericCommand,
     AddUser,
     CreateDirectory,
-    PackagesInstall,
+    InstallPackages,
     SystemCtl,
     Firewall,
     EditFile,
@@ -51,7 +52,7 @@ impl fmt::Display for ControlActionType {
             ControlActionType::GenericCommand   => write!(f, "genericCommand"),
             ControlActionType::AddUser          => write!(f, "addUser"),
             ControlActionType::CreateDirectory  => write!(f, "createDirectory"),
-            ControlActionType::PackagesInstall  => write!(f, "packagesInstall"),
+            ControlActionType::InstallPackages  => write!(f, "installPackages"),
             ControlActionType::SystemCtl        => write!(f, "systemCtl"),
             ControlActionType::Firewall         => write!(f, "firewall"),
             ControlActionType::EditFile         => write!(f, "editFile"),
@@ -223,7 +224,7 @@ impl ControlActions {
             "genericCommand" =>     ControlActionType::GenericCommand,
             "addUser" =>            ControlActionType::AddUser,
             "createDirectory" =>    ControlActionType::CreateDirectory,
-            "packagesInstall" =>    ControlActionType::PackagesInstall,
+            "installPackages" =>    ControlActionType::InstallPackages,
             "systemCtl" =>          ControlActionType::SystemCtl,
             "firewall" =>           ControlActionType::Firewall,
             "editFile" =>           ControlActionType::EditFile,
