@@ -21,17 +21,8 @@ use super::control_connection_ssh::{ControlConnectionSSH};
 
 #[cfg(feature = "ssh")]
 use ssh2::Session;
+#[cfg(feature = "ssh")]
 use std::net::TcpStream;
-
-// #[cfg(feature = "ssh")]
-// mod internal {
-//     pub fn send_command() {}
-// }
-
-// #[cfg(not(feature = "ssh"))]
-// mod internal {
-//    pub fn send_command() {}
-// }
 
 // pub use internal::*;
 

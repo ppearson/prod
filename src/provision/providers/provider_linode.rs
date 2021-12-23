@@ -24,6 +24,14 @@ use crate::provision::provision_common::{ActionResultValues, ProvisionActionResu
 use crate::provision::provision_manager::{ListType};
 use crate::provision::provision_params::{ProvisionParams};
 
+use crate::column_list_printer::{ColumnListPrinter, Alignment};
+
+#[derive(Serialize, Deserialize)]
+struct TypeResultPrice {
+    hourly: f32,
+    monthly: f32,
+}
+
 #[derive(Serialize, Deserialize)]
 struct TypeResultItem {
     id: String,
@@ -33,7 +41,7 @@ struct TypeResultItem {
     disk: u32,
     transfer: u32,
     vcpus: u32,
- //   monthly_cost: u32,
+    price: TypeResultPrice,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -153,51 +161,45 @@ impl ProvisionProvider for ProviderLinode {
         if list_type == ListType::Regions {
             let results: RegionListResults = serde_json::from_str(&resp_string).unwrap();
 
-            // TODO: come up with some better way of doing this for column alignment...
-            let max_id_length = results.data.iter().map(|r| r.id.len()).max().unwrap();
-            let max_country_length = results.data.iter().clone().map(|r| r.country.len()).max().unwrap();
-
             println!("{} regions:", results.data.len());
 
+            let mut clp = ColumnListPrinter::new(2);
+
             for region in &results.data {
-                println!("{:midl$} {:mcl$}", region.id, region.country,
-                                                    midl = max_id_length, mcl = max_country_length);
+                clp.add_row_strings(&[&region.id, &region.country]);
             }
+
+            print!("{}", clp);
         }
         else if list_type == ListType::Plans {
             let results: TypeListResults = serde_json::from_str(&resp_string).unwrap();
 
-            // TODO: come up with some better way of doing this for column alignment...
-            let max_id_length = results.data.iter().map(|p| p.id.len()).max().unwrap();
-            let max_label_length = results.data.iter().clone().map(|p| p.label.len()).max().unwrap();
-            let max_memory_length = results.data.iter().clone().map(|p| format!("{}", p.memory).len()).max().unwrap();
-            let max_disk_length = results.data.iter().clone().map(|p| format!("{}", p.disk).len()).max().unwrap();
-
             println!("{} plans:", results.data.len());
 
+            let mut clp = ColumnListPrinter::new(5).set_alignment_multiple(&vec![2usize, 3, 4], Alignment::Right);
+
             for plan in &results.data {
-                println!("{:midl$} {:mll$} {:mml$} MB {:mdl$} MB", plan.id, plan.label, plan.memory, plan.disk,
-                                                    midl = max_id_length, mll = max_label_length, mml = max_memory_length,
-                                                    mdl = max_disk_length);
+                clp.add_row_strings(&[&plan.id, &plan.label, &format!("{} MB", plan.memory), &format!("{} MB", plan.disk),
+                                    &format!("${}", plan.price.monthly)]);
             }
+
+            print!("{}", clp);
         }
         else if list_type == ListType::OSs {
             let results: ImageListResults = serde_json::from_str(&resp_string).unwrap();
 
-            // TODO: come up with some better way of doing this for column alignment...
-            let max_id_length = results.data.iter().map(|i| i.id.len()).max().unwrap();
-            let max_label_length = results.data.iter().map(|i| i.label.len()).max().unwrap();
-
             println!("{} OS images:", results.data.len());
 
+            let mut clp = ColumnListPrinter::new(3);
+
             for image in &results.data {
-                println!("{:midl$} {:mll$} {}", image.id, image.label, image.vendor,
-                                                    midl = max_id_length, mll = max_label_length);
+                clp.add_row_strings(&[&image.id, &image.label, &image.vendor]);
             }
+
+            print!("{}", clp);
         }
         else {
-             // TODO: format these nicely, and maybe filter them?...
-        println!("{}", resp_string);
+            println!("{}", resp_string);
         }
 
         return true;

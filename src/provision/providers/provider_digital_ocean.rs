@@ -16,6 +16,7 @@
 use ureq;
 use ureq::Error;
 use serde_json::{Value};
+use serde::{Deserialize, Serialize};
 
 use std::collections::BTreeSet;
 
@@ -23,6 +24,60 @@ use crate::provision::provision_provider::{ProvisionProvider};
 use crate::provision::provision_common::{ProvisionActionType, ProvisionActionResult, ActionResultValues};
 use crate::provision::provision_manager::{ListType};
 use crate::provision::provision_params::{ProvisionParams};
+
+use crate::column_list_printer::{ColumnListPrinter, Alignment};
+
+#[derive(Serialize, Deserialize)]
+struct SizeResultItem {
+    slug: String,
+    memory: u32,
+    vcpus: u32,
+    disk: u32,
+    transfer: f32,
+    description: String,
+
+    price_monthly: f32,
+    price_hourly: f32,
+}
+
+#[derive(Serialize, Deserialize)]
+struct SizeListResults {
+    sizes: Vec<SizeResultItem>
+}
+
+#[derive(Serialize, Deserialize)]
+struct ImageResultItem {
+    id: u64,
+    name: String,
+    distribution: String,
+    slug: String,
+    public: bool,
+    min_disk_size: u32,
+
+    #[serde(rename = "type")]
+    ttype: String,
+
+    size_gigabytes: f32,
+    description: String,
+    status: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct ImageListResults {
+    images: Vec<ImageResultItem>
+}
+
+#[derive(Serialize, Deserialize)]
+struct RegionResultItem {
+    name: String,
+    slug: String,
+    available: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+struct RegionListResults {
+    regions: Vec<RegionResultItem>
+}
 
 pub struct ProviderDigitalOcean {
     digital_ocean_api_token: String,
@@ -45,7 +100,7 @@ impl ProvisionProvider for ProviderDigitalOcean {
 
     fn prompt_interactive(&self) -> Vec<(String, String)> {
         let mut items = Vec::new();
-        items.push(("API_TOKEN".to_string(), "API Token to use Digital Ocean".to_string()));
+        items.push(("API_TOKEN".to_string(), "API Token to use Digital Ocean API".to_string()));
         return items;
     }
 
@@ -84,10 +139,10 @@ impl ProvisionProvider for ProviderDigitalOcean {
             }
         };
 
-        // Note: DigitalOcean requires and API token header even for GET requests
+        // Note: DigitalOcean requires an API token header even for GET requests
         //       to list things, which is a bit annoying...
         if self.digital_ocean_api_token.is_empty() {
-            eprintln!("Digital Ocean requires an API token to be used for list API requests. Please set $DIGITAL_OCEAN_API_TOKEN.");
+            eprintln!("Digital Ocean requires an API token to be used for list API requests. Please set $PROD_DIGITAL_OCEAN_API_TOKEN.");
             return false;
         }
 
@@ -102,9 +157,52 @@ impl ProvisionProvider for ProviderDigitalOcean {
 
         let resp_string = resp.unwrap().into_string().unwrap();
 
-        // TODO: format these nicely, and maybe filter them?...
+        if list_type == ListType::Regions {
+            let results: RegionListResults = serde_json::from_str(&resp_string).unwrap();
 
-        println!("{}", resp_string);
+            println!("{} regions:", results.regions.len());
+
+            let mut clp = ColumnListPrinter::new(3)
+                .add_titles(["id", "name", "available"]);
+
+            for region in &results.regions {
+                clp.add_row_strings(&[&region.slug, &region.name, if region.available {"true"} else {"false"}]);
+            }
+
+            print!("{}", clp);
+        }
+        else if list_type == ListType::Plans {
+            let results: SizeListResults = serde_json::from_str(&resp_string).unwrap();
+
+            println!("{} plans:", results.sizes.len());
+
+            let mut clp = ColumnListPrinter::new(7)
+                .set_alignment_multiple(&vec![2usize, 3, 4, 5, 6], Alignment::Right)
+                .add_titles(["id", "desc", "cpus", "memory", "disk", "transfer", "price"]);
+
+            for size in &results.sizes {
+                clp.add_row_strings(&[&size.slug, &size.description, &format!("{}", size.vcpus), &format!("{} MB", size.memory),
+                                         &format!("{} GB", size.disk), &format!("{} TB", size.transfer), &format!("${}", size.price_monthly)]);
+            }
+
+            print!("{}", clp);
+        }
+        else if list_type == ListType::OSs {
+            let results: ImageListResults = serde_json::from_str(&resp_string).unwrap();
+
+            println!("{} OS images:", results.images.len());
+
+            let mut clp = ColumnListPrinter::new(4);
+
+            for image in &results.images {
+                clp.add_row_strings(&[&format!("{}", image.id), &image.distribution, &image.description, &image.status]);
+            }
+
+            print!("{}", clp);
+        }
+        else {
+            println!("{}", resp_string);
+        }
         
         return true;
     }

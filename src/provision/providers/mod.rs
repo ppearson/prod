@@ -13,6 +13,7 @@
  ---------
 */
 
+pub mod provider_binary_lane;
 pub mod provider_digital_ocean;
 pub mod provider_linode;
 pub mod provider_openstack;

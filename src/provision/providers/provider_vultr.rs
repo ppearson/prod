@@ -20,6 +20,8 @@ use serde::{Deserialize, Serialize};
 
 use std::collections::BTreeSet;
 
+use crate::column_list_printer::{ColumnListPrinter, Alignment};
+
 use crate::provision::provision_provider::{ProvisionProvider};
 use crate::provision::provision_common::{ActionResultValues, ProvisionActionResult, ProvisionActionType, ProvisionResponseWaitType};
 use crate::provision::provision_manager::{ListType};
@@ -32,7 +34,7 @@ struct PlanResultItem {
     ram: u32,
     disk: u32,
     bandwidth: u32,
-    monthly_cost: u32,
+    monthly_cost: f32,
 
     #[serde(alias = "type")]
     plan_type: String,
@@ -164,54 +166,41 @@ impl ProvisionProvider for ProviderVultr {
         if list_type == ListType::Regions {
             let results: RegionListResults = serde_json::from_str(&resp_string).unwrap();
 
-            // TODO: come up with some better way of doing this for column alignment...
-            let max_city_length = results.regions.iter().map(|r| r.city.len()).max().unwrap();
-            let max_country_length = results.regions.iter().clone().map(|r| r.country.len()).max().unwrap();
-
             println!("{} regions:", results.regions.len());
 
+            let mut clp = ColumnListPrinter::new(4);
             for region in &results.regions {
-                println!("{}  {:mcl$} {:mcntl$} {}", region.id, region.city, region.country, region.continent,
-                                                    mcl = max_city_length, mcntl = max_country_length);
+                clp.add_row_strings(&[&region.id, &region.city, &region.country, &region.continent]);
             }
+
+            print!("{}", clp);
         }
         else if list_type == ListType::Plans {
             let results: PlanListResults = serde_json::from_str(&resp_string).unwrap();
 
-            // TODO: come up with some better way of doing this for column alignment...
-            let max_id_length = results.plans.iter().map(|p| p.id.len()).max().unwrap();
-            let max_cost_length = results.plans.iter().map(|p| format!("{}", p.monthly_cost).len()).max().unwrap();
-            let max_disk_length = results.plans.iter().clone().map(|p| format!("{}", p.disk).len()).max().unwrap();
-            let max_ram_length = results.plans.iter().clone().map(|p| format!("{}", p.ram).len()).max().unwrap();
-
             println!("{} plans:", results.plans.len());
 
+            let mut clp = ColumnListPrinter::new(5).set_alignment_multiple(&vec![1usize, 2, 3, 4], Alignment::Right);
             for plan in &results.plans {
-                println!("{:midl$} : {:>mcl$} {:mdl$} GB {:mrl$} MB {} GB", plan.id, format!("${}", plan.monthly_cost),
-                                                    plan.disk, plan.ram, plan.bandwidth,
-                                                    midl = max_id_length, mcl = max_cost_length + 1,
-                                                    mdl = max_disk_length, mrl = max_ram_length);
+                clp.add_row_strings(&[&format!("{}", plan.id), &format!("{} GB", plan.disk), &format!("{} MB", plan.ram),
+                                                &format!("{} GB", plan.bandwidth), &format!("${:.1}", plan.monthly_cost)]);
             }
+
+            print!("{}", clp);
         }
         else if list_type == ListType::OSs {
             let results: OSListResults = serde_json::from_str(&resp_string).unwrap();
 
-            // TODO: come up with some better way of doing this for column alignment...
-            let max_id_length = results.os.iter().map(|os| format!("{}", os.id).len()).max().unwrap();
-            let max_name_length = results.os.iter().map(|os| os.name.len()).max().unwrap();
-            let max_arch_length = results.os.iter().clone().map(|os| os.arch.len()).max().unwrap();
-            let max_family_length = results.os.iter().clone().map(|os| os.family.len()).max().unwrap();
-
             println!("{} OS images:", results.os.len());
 
+            let mut clp = ColumnListPrinter::new(4);
             for image in &results.os {
-                println!("{}  {:mnl$} {:mal$} {:mfl$}", image.id, image.name, image.arch, image.family,
-                                                    mnl = max_name_length, mal = max_arch_length, mfl = max_family_length);
+                clp.add_row_strings(&[&format!("{}", image.id), &image.name, &image.arch, &image.family]);
             }
+
+            print!("{}", clp);
         }
         else {
-            // TODO: format these nicely, and maybe filter them?...
-
             println!("{}", resp_string);
         }
 

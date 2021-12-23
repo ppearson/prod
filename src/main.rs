@@ -25,6 +25,8 @@ mod params;
 
 mod provision;
 
+mod column_list_printer;
+
 use control::control_manager::{ControlManager, CommandResult};
 use control::control_actions::{ControlActions};
 
