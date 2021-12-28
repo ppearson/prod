@@ -20,19 +20,19 @@ Provision Provider Support
 Below is a basic overview of what's currently supported for the three direct-API providers currently, as well as the
 more generic OpenStack provider which several other privders provide APIs for.
 
-+---------------------------------+---------+---------+---------------+------------+
-| Feature                         | Vultr   | Linode  | Digital Ocean | OpenStack  |
-+=================================+=========+=========+===============+============+
-| List Locations                  | |tick|  | |tick|  | |tick|        | |cross|    |
-+---------------------------------+---------+---------+---------------+------------+
-| List VPS Types                  | |tick|  | |tick|  | |tick|        | |cross|    |
-+---------------------------------+---------+---------+---------------+------------+
-| List Operating Systems          | |tick|  | |tick|  | |tick|        | |cross|    |
-+---------------------------------+---------+---------+---------------+------------+
-| Create Cloud Instance           | |tick|  | |tick|  | |tick|        | |cross|    |
-+---------------------------------+---------+---------+---------------+------------+
-| Delete Cloud Instance           | |cross| | |cross| | |cross|       | |cross|    |
-+---------------------------------+---------+---------+---------------+------------+
++---------------------------------+---------+---------+---------------+-------------+-----------+
+| Feature                         | Vultr   | Linode  | Digital Ocean | Binary Lane | OpenStack |
++=================================+=========+=========+===============+=============+===========+
+| List Regions / Locations        | |tick|  | |tick|  | |tick|        | |tick|      | |cross|   |
++---------------------------------+---------+---------+---------------+-------------+-----------+
+| List VPS Types / Sizes          | |tick|  | |tick|  | |tick|        | |tick|      | |cross|   |
++---------------------------------+---------+---------+---------------+-------------+-----------+
+| List Operating Systems / Images | |tick|  | |tick|  | |tick|        | |tick|      | |cross|   |
++---------------------------------+---------+---------+---------------+-------------+-----------+
+| Create Cloud Instance           | |tick|  | |tick|  | |tick|        | |cross|     | |cross|   |
++---------------------------------+---------+---------+---------------+-------------+-----------+
+| Delete Cloud Instance           | |tick|  | |tick|  | |tick|        | |cross|     | |cross|   |
++---------------------------------+---------+---------+---------------+-------------+-----------+
 
 Using Providers
 ---------------
@@ -44,14 +44,24 @@ an "API Key" created for your account. For Digital Ocean, this key (API Token) a
 You can create these keys in the account settings section of the web interface of each provider, and you will need to set an
 environment variable in order for Prod to know about it and use it for its requests to the respective API endpoint of the provider.
 
-**Linode**
-    To configure the Linode provider infrastructure, you must set the ``$PROD_LINODE_API_KEY`` environment variable to the value of your
-    Linode API key you created in the Linode web interface for your account.
-
 **Vultr**
     To configure the Vultr provider infrastructure, you must set the ``$PROD_VULTR_API_KEY`` environment variable to the value of your
     Vultr API key you created in the Vultr web interface for your account. You may also have to allow access to allowed IP ranges
     in order for the API to be used from the machine you will be running it on.
+
+**Linode**
+    To configure the Linode provider infrastructure, you must set the ``$PROD_LINODE_API_KEY`` environment variable to the value of your
+    Linode API key you created in the Linode web interface for your account.
+
+**Digital Ocean**
+    To configure the Digital Ocean provider infrastructure, you must set the ``$PROD_DIGITAL_OCEAN_API_TOKEN`` environment variable to the
+    value of your Digital Ocean API token you created in the Digital Ocean web interface for your account. Note: Digital Ocean requires
+    the token to be configured even for listing available regions and droplet types/sizes.
+
+**Binary Lane**
+    To configure the Binary Lane provider infrastructure, you must set the ``$PROD_BINARY_LANE_API_TOKEN`` environment variable to the
+    value of your Binary Lane API key you created in the Binary Lane web interface for your account. Note: listing available OS images
+    requires that the token be configured, but listing regions and sizes doesn't.
 
 See :doc:`prov_schema` for details on how to specify Provision instructions and parameters for Prod for each Provider implementation.
 

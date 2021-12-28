@@ -22,6 +22,7 @@ pub enum Alignment {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[allow(dead_code)]
 pub enum BorderType {
     None,
     Colon,
@@ -40,6 +41,7 @@ impl ColumnProperties {
     }
 }
 
+#[allow(dead_code)]
 pub struct ColumnListPrinter {
     num_columns:        usize,
     data_columns:       Vec<Vec<String>>,
@@ -68,7 +70,7 @@ impl ColumnListPrinter {
     //     return self;
     // }
 
-    pub fn set_alignment_multiple(mut self, columns: &Vec<usize>, alignment: Alignment) -> Self {
+    pub fn set_alignment_multiple(mut self, columns: &[usize], alignment: Alignment) -> Self {
         for col in columns {
             self.column_properties[*col].text_alignment = alignment;
         }

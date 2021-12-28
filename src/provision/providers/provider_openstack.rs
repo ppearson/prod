@@ -17,8 +17,8 @@
 //       and may well be removed in the future...
 
 use ureq;
-use ureq::Error;
-use serde_json::{Value};
+//use ureq::Error;
+//use serde_json::{Value};
 
 use std::collections::BTreeSet;
 
@@ -51,7 +51,7 @@ impl ProvisionProvider for ProviderOpenStack {
     }
 
     fn prompt_interactive(&self) -> Vec<(String, String)> {
-        let mut items = Vec::new();
+        let items = Vec::new();
         return items;
     }
 
@@ -137,11 +137,11 @@ impl ProvisionProvider for ProviderOpenStack {
         params
     }
 
-    fn create_instance(&self, params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
-        let name_str = params.get_value("name", "");
-        let availability_zone_str = params.get_value("availability_zone", "");
-        let flavor_ref_str = params.get_value("flavorRef", "");
-        let image_ref_str = params.get_value("imageRef", "");
+    fn create_instance(&self, _params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
+        // let name_str = params.get_string_value("name", "");
+        // let availability_zone_str = params.get_string_value("availability_zone", "");
+        // let flavor_ref_str = params.get_string_value("flavorRef", "");
+        // let image_ref_str = params.get_string_value("imageRef", "");
 
 
         return ProvisionActionResult::Failed("".to_string());

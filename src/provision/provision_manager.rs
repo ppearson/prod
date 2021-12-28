@@ -179,7 +179,7 @@ impl ProvisionManager {
         let mut missing_params = Vec::with_capacity(0);
 
         for required in required_params {
-            if !params.has_value(required) {
+            if !params.has_param(required) {
                 missing_params.push(required);
             }
         }

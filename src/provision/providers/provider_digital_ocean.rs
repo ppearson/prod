@@ -219,21 +219,34 @@ impl ProvisionProvider for ProviderDigitalOcean {
     }
 
     fn create_instance(&self, params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
-        let name_str = params.get_value("name", "");
-        let region_str = params.get_value("region", "");
-        let size_str = params.get_value("size", "");
-        let image_str = params.get_value("image", "");
-        let ipv6 = params.get_value_as_bool("ipv6", false);
+        let name_str = params.get_string_value("name", "");
+        let region_str = params.get_string_value("region", "");
+        let size_str = params.get_string_value("size", "");
+        let image_str = params.get_string_value("image", "");
+        let ipv6 = params.get_string_value_as_bool("ipv6", false);
+        let backups = params.get_string_value_as_bool("backups", false);
+        let monitoring = params.get_string_value_as_bool("monitoring", false);
+
+        // Note: get_string_array() will return even single strings as an array by-design...
+        let ssh_keys = params.get_string_array("ssh_keys");
+
+        let mut json_value = ureq::json!({
+            "name": name_str,
+            "region": region_str,
+            "size": size_str,
+            "image": image_str,
+            "ipv6": ipv6,
+            "backups": backups,
+            "monitoring": monitoring,
+        });
+
+        if let Some(ssh_keys_array) = ssh_keys {
+            json_value.as_object_mut().unwrap().insert("ssh_keys".to_string(), serde_json::to_value(ssh_keys_array).unwrap());
+        }
 
         let resp = ureq::post("https://api.digitalocean.com/v2/droplets")
             .set("Authorization", &format!("Bearer {}", self.digital_ocean_api_token))
-            .send_json(ureq::json!({
-                "name": name_str,
-                "region": region_str,
-                "size": size_str,
-                "image": image_str,
-                "ipv6": ipv6,
-            }));
+            .send_json(json_value);
 
         // TODO: there's an insane amount of boilerplate error handling and response
         //       decoding going on here... Try and condense it...
@@ -327,7 +340,7 @@ impl ProvisionProvider for ProviderDigitalOcean {
             // sleep a bit to give things a chance...
             std::thread::sleep(std::time::Duration::from_secs(15));
 
-            let droplet_info = self.get_value_map_from_get_droplet_call(&instance_id);
+            let droplet_info = self.get_value_map_from_get_droplet_call(instance_id);
             if droplet_info.is_err() {
                 return droplet_info.err().unwrap();
             }

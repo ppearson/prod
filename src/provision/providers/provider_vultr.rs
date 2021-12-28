@@ -221,22 +221,43 @@ impl ProvisionProvider for ProviderVultr {
     }
 
     fn create_instance(&self, params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
-        let region_str = params.get_value("region", "");
-        let plan_str = params.get_value("plan", "");
-        let label_str = params.get_value("label", "");
-        let os_id_str = params.get_value("os_id", "");
+        let region_str = params.get_string_value("region", "");
+        let plan_str = params.get_string_value("plan", "");
+        let label_str = params.get_string_value("label", "");
+        let hostname = params.get_string_value("hostname", "");
+        let os_id_str = params.get_string_value("os_id", "");
+        let tag = params.get_string_value("tag", "");
         let os_id = os_id_str.parse::<u32>().unwrap();
-        let enable_ipv6 = params.get_value_as_bool("enable_ipv6", false);
+        let enable_ipv6 = params.get_string_value_as_bool("enable_ipv6", false);
+        let backups = params.get_string_value_as_bool("backups", false);
+
+        // Note: get_string_array() will return even single strings as an array by-design...
+        let sshkey_id = params.get_string_array("sshkey_id");
+
+        let mut json_value = ureq::json!({
+            "region": region_str,
+            "plan": plan_str,
+            "label": label_str,
+            "os_id": os_id,
+            "enable_ipv6": enable_ipv6,
+            "backups": backups,
+        });
+
+        if !hostname.is_empty() {
+            json_value.as_object_mut().unwrap().insert("hostname".to_string(), serde_json::to_value(hostname).unwrap());
+        }
+
+        if !tag.is_empty() {
+            json_value.as_object_mut().unwrap().insert("tag".to_string(), serde_json::to_value(tag).unwrap());
+        }
+
+        if let Some(sshkey_id_array) = sshkey_id {
+            json_value.as_object_mut().unwrap().insert("sshkey_id".to_string(), serde_json::to_value(sshkey_id_array).unwrap());
+        }
 
         let resp = ureq::post("https://api.vultr.com/v2/instances")
             .set("Authorization", &format!("Bearer {}", self.vultr_api_key))
-            .send_json(ureq::json!({
-                "region": region_str,
-                "plan": plan_str,
-                "label": label_str,
-                "os_id": os_id,
-                "enable_ipv6": enable_ipv6,
-            }));
+            .send_json(json_value);
 
         // TODO: there's an insane amount of boilerplate error handling and response
         //       decoding going on here... Try and condense it...
@@ -406,7 +427,7 @@ impl ProvisionProvider for ProviderVultr {
     }
 
     fn delete_instance(&self, params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
-        let instance_id = params.get_value("instance_id", "");
+        let instance_id = params.get_string_value("instance_id", "");
         let full_url = format!("https://api.vultr.com/v2/instances/{}", instance_id);
 
         let resp = ureq::delete(&full_url)

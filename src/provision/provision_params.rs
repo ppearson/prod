@@ -22,12 +22,33 @@ use crate::common::{FileLoadError};
 
 use super::provision_common::{ProvisionActionType, ProvisionResponseWaitType};
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum ParamValue {
+    StringVal(String),
+    StringArray(Vec<String>)
+}
+
+impl fmt::Display for ParamValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            ParamValue::StringVal(s) => write!(f, "'{}'", s),
+            ParamValue::StringArray(arr) => {
+                write!(f, "{{")?;
+                for it in arr {
+                    write!(f, " {},", it)?;
+                }
+                write!(f, " }}")
+            },
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ProvisionParams {
     pub provider:   String,
     pub action:     ProvisionActionType,
     pub wait_type:  ProvisionResponseWaitType,
-    pub values:     BTreeMap<String, String>
+    pub values:     BTreeMap<String, ParamValue>
 }
 
 impl fmt::Display for ProvisionParams {
@@ -128,38 +149,63 @@ impl ProvisionParams {
                 }
             },
             _ => {
-                self.values.insert(key.to_string(), val.to_string());
+                // Note: we promote automatically to StringArray when there's already a key of that name which is a string,
+                //       which means we don't overwrite...
+                if let Some(param_value) = self.values.get_mut(key) {
+                    if let ParamValue::StringArray(array) = param_value {
+                        array.push(val.to_string());
+                    }
+                    else if let ParamValue::StringVal(str) = param_value {
+                        // current value is a single string, automatically promote to a string array
+                        let str = std::mem::take(str);
+                        self.values.insert(key.to_string(), ParamValue::StringArray(vec![str, val.to_string()]));
+                    }
+                }
+                else {
+                    // it doesn't exist currently, so add as a new param...
+                    self.values.insert(key.to_string(), ParamValue::StringVal(val.to_string()));
+                }
             }
         }
     }
 
-    pub fn has_value(&self, key: &str) -> bool {
+    pub fn has_param(&self, key: &str) -> bool {
         return self.values.contains_key(key);
     }
 
-    pub fn get_value(&self, key: &str, default: &str) -> String {
-        let res = self.values.get(key);
-        let val = match res {
-            Some(str_val) => str_val.to_string(),
-            _ => default.to_string()
-        };
-
-        val
+    pub fn get_string_value(&self, key: &str, default: &str) -> String {
+        if let Some(ParamValue::StringVal(str)) = self.values.get(key) {
+            return str.to_string();
+        }
+        
+        return default.to_string();
     }
 
-    pub fn get_value_as_bool(&self, key: &str, default: bool) -> bool {
-        let res = self.values.get(key);
-        let val = match res {
-            Some(str_val) => {
-                match str_val.as_str() {
-                    "0" | "false" => false,
-                    "1" | "true" => true,
-                    _ => default
-                }
-            },
-            _ => default
-        };
+    pub fn get_string_value_as_bool(&self, key: &str, default: bool) -> bool {
+        if let Some(ParamValue::StringVal(str)) = self.values.get(key) {
+            let val = match str.as_str() {
+                "0" | "false" => false,
+                "1" | "true" => true,
+                _ => default
+            };
 
-        val
+            return val;
+        }
+        
+        return default;
+    }
+
+    pub fn get_string_array(&self, key: &str) -> Option<Vec<String>> {
+        let val = self.values.get(key);
+        if let Some(ParamValue::StringArray(array)) = val {
+            return Some(array.clone());
+        }
+        else if let Some(ParamValue::StringVal(str)) = val {
+            // it's currently a single string, but because we've been asked for a string array
+            // return the single string as a Vec<String> of that one string...
+            return Some(vec![str.to_string()]);
+        }
+
+        return None;
     }
 }

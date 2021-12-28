@@ -32,7 +32,7 @@ use control::control_actions::{ControlActions};
 
 use provision::provision_common::{ProvisionActionType};
 use provision::provision_manager::{ProvisionManager, ListType};
-use provision::provision_params::{ProvisionParams};
+use provision::provision_params::{ProvisionParams, ParamValue};
 
 enum MainType {
     Unknown,
@@ -136,7 +136,7 @@ pub fn handle_provision_command(args: &Vec<String>) -> bool {
             let instance_id = &args[4];
 
             let mut params = ProvisionParams::from_details(provider, ProvisionActionType::DeleteInstance);
-            params.values.insert("instance_id".to_string(), instance_id.to_string());
+            params.values.insert("instance_id".to_string(), ParamValue::StringVal(instance_id.to_string()));
             let _response = provision_manager.perform_action(&params, dry_run);
 
             return true;

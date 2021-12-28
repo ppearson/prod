@@ -218,21 +218,37 @@ impl ProvisionProvider for ProviderLinode {
     }
 
     fn create_instance(&self, params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
-        let region_str = params.get_value("region", "");
-        let type_str = params.get_value("type", "");
-        let label_str = params.get_value("label", "");
-        let image_str = params.get_value("image", "");
-        let root_pass_str = params.get_value("root_pass", "");
+        let region_str = params.get_string_value("region", "");
+        let type_str = params.get_string_value("type", "");
+        let label_str = params.get_string_value("label", "");
+        let image_str = params.get_string_value("image", "");
+        let root_pass_str = params.get_string_value("root_pass", "");
+        let backups_enabled = params.get_string_value_as_bool("backups_enabled", false);
+
+        // Note: get_string_array() will return even single strings as an array by-design...
+        let authorized_keys = params.get_string_array("authorized_keys");
+        let authorized_users = params.get_string_array("authorized_users");
+
+        let mut json_value = ureq::json!({
+            "region": region_str,
+            "type": type_str,
+            "label": label_str,
+            "image": image_str,
+            "root_pass": root_pass_str,
+            "backups_enabled": backups_enabled,
+        });
+
+        if let Some(authorized_keys_array) = authorized_keys {
+            json_value.as_object_mut().unwrap().insert("authorized_keys".to_string(), serde_json::to_value(authorized_keys_array).unwrap());
+        }
+
+        if let Some(authorized_users_array) = authorized_users {
+            json_value.as_object_mut().unwrap().insert("authorized_users".to_string(), serde_json::to_value(authorized_users_array).unwrap());
+        }
 
         let resp = ureq::post("https://api.linode.com/v4/linode/instances")
             .set("Authorization", &format!("Bearer {}", self.linode_api_key))
-            .send_json(ureq::json!({
-                "region": region_str,
-                "type": type_str,
-                "label": label_str,
-                "image": image_str,
-                "root_pass": root_pass_str,
-            }));
+            .send_json(json_value);
 
         // TODO: there's an insane amount of boilerplate error handling and response
         //       decoding going on here... Try and condense it...
@@ -366,7 +382,7 @@ impl ProvisionProvider for ProviderLinode {
     }
 
     fn delete_instance(&self, params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
-        let instance_id = params.get_value("instance_id", "");
+        let instance_id = params.get_string_value("instance_id", "");
         let full_url = format!("https://api.linode.com/v4/linode/instances/{}", instance_id);
 
         let resp = ureq::delete(&full_url)
