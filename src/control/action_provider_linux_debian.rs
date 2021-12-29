@@ -46,7 +46,7 @@ impl AProviderLinuxDebian {
         }
 
         if self.session_params.hide_commands_from_history {
-            final_command.insert_str(0, " ");
+            final_command.insert(0, ' ');
         }
 
         return final_command;
@@ -233,7 +233,7 @@ impl ActionProvider for AProviderLinuxDebian {
         // this needs to be done first, otherwise packages can't be found...
         let update_packages = action.params.get_value_as_bool("update", true);
         if update_packages {
-            let apt_get_command = format!("apt-get -y update");
+            let apt_get_command = "apt-get -y update".to_string();
             connection.conn.send_command(&self.post_process_command(&apt_get_command));
         }
 
@@ -558,7 +558,7 @@ impl ActionProvider for AProviderLinuxDebian {
 
             // check there was no error response
             if let Some(str) = connection.conn.get_previous_stderr_response() {
-                println!("create_symlink error: {}", str);
+                eprintln!("create_symlink error: {}", str);
                 return ActionResult::Failed(str.to_string());
             }
         }
@@ -567,9 +567,31 @@ impl ActionProvider for AProviderLinuxDebian {
         connection.conn.send_command(&self.post_process_command(&ln_command));
 
         if let Some(str) = connection.conn.get_previous_stderr_response() {
-            println!("create_symlink error: {}", str);
+            eprintln!("create_symlink error: {}", str);
             return ActionResult::Failed(str.to_string());
         }
+
+        return ActionResult::Success;
+    }
+
+    fn set_time_zone(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        let time_zone = action.params.get_string_value("timeZone");
+        if time_zone.is_none() {
+            return ActionResult::InvalidParams("The 'timeZone' parameter was not specified.".to_string());
+        }
+        let time_zone = time_zone.unwrap();
+
+        // "UTC", "Pacific/Auckland", "Europe/London"
+
+        let timedatectl_command = format!("timedatectl {}", time_zone);
+        connection.conn.send_command(&self.post_process_command(&timedatectl_command));
+
+        if let Some(str) = connection.conn.get_previous_stderr_response() {
+            eprintln!("set_time_zone error: {}", str);
+            return ActionResult::Failed(str.to_string());
+        }
+
+        // TODO: also restart things like crond that might have been affected?
 
         return ActionResult::Success;
     }

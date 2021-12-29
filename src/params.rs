@@ -134,50 +134,42 @@ impl Params {
 
     pub fn get_string_value(&self, key: &str) -> Option<String> {
         let res = self.values.get(key);
-        match res {
-            Some(ParamValue::Str(str_val)) => {
-                return Some(str_val.to_string());
-            },
-            _ => {}
-        };
+        if let Some(ParamValue::Str(str_val)) = res {
+            return Some(str_val.to_string());
+        }
 
         None
     }
 
     pub fn get_string_value_with_default(&self, key: &str, default: &str) -> String {
         let res = self.values.get(key);
-        let val = match res {
-            Some(ParamValue::Str(str_val)) => str_val.to_string(),
-            _ => default.to_string()
-        };
-
-        val
+        if let Some(ParamValue::Str(str_val)) = res {
+            return str_val.to_string();
+        }
+        
+        return default.to_string();
     }
 
     pub fn get_value_as_bool(&self, key: &str, default: bool) -> bool {
         let res = self.values.get(key);
-        let val = match res {
-            Some(ParamValue::Bool(val)) => *val,
-            _ => default
-        };
-
-        val
+        if let Some(ParamValue::Bool(val)) = res {
+            return *val;
+        }
+        
+        default
     }
 
     pub fn get_values_as_vec_of_strings(&self, key: &str) -> Vec<String> {
         let mut values = Vec::new();
         let res = self.values.get(key);
-         match res {
-            Some(ParamValue::Array(vec)) => {
-                for it in vec {
-                    // only strings for the moment...
-                    if let ParamValue::Str(str) = it {
-                        values.push(str.clone());
-                    }
+        if let Some(ParamValue::Array(vec)) = res {
+            for it in vec {
+                // only strings for the moment...
+                if let ParamValue::Str(str) = it {
+                    values.push(str.clone());
                 }
-            },
-            _ => {}
-        };
+            }
+        }
 
         return values;
     }

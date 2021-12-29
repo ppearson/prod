@@ -140,7 +140,7 @@ impl ProvisionManager {
                         println!("Cloud instance created successfully:\n");
                         let mut clp = ColumnListPrinter::new(2);
                         for (key, val) in &res_values.values {
-                            clp.add_row_strings(&[key.as_str(), val.as_str()]);
+                            clp.add_row_strings(&[&format!("{}:", key), val.as_str()]);
                         }
                         println!("{}", clp);
                     },

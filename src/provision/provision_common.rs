@@ -86,12 +86,11 @@ impl ActionResultValues {
 
     pub fn get_value(&self, key: &str, default: &str) -> String {
         let res = self.values.get(key);
-        let val = match res {
-            Some(str_val) => str_val.to_string(),
-            _ => default.to_string()
-        };
-
-        val
+        if let Some(str_val) = res {
+            return str_val.to_string();
+        }
+        
+        return default.to_string();
     }
 
     pub fn get_value_as_bool(&self, key: &str, default: bool) -> bool {

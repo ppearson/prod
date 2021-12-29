@@ -41,7 +41,8 @@ pub enum ControlActionType {
     CopyPath,
     DownloadFile,
     TransmitFile,
-    CreateSymlink
+    CreateSymlink,
+    SetTimeZone,
 }
 
 impl fmt::Display for ControlActionType {
@@ -60,6 +61,7 @@ impl fmt::Display for ControlActionType {
             ControlActionType::DownloadFile     => write!(f, "downloadFile"),
             ControlActionType::TransmitFile     => write!(f, "transmitFile"),
             ControlActionType::CreateSymlink    => write!(f, "createSymlink"),
+            ControlActionType::SetTimeZone      => write!(f, "setTimeZone"),
         }
     }
 }
@@ -232,6 +234,7 @@ impl ControlActions {
             "downloadFile" =>       ControlActionType::DownloadFile,
             "transmitFile" =>       ControlActionType::TransmitFile,
             "createSymlink" =>      ControlActionType::CreateSymlink,
+            "setTimeZone" =>        ControlActionType::SetTimeZone,
             _ =>                    ControlActionType::Unrecognised
         };
 
@@ -314,6 +317,10 @@ pub trait ActionProvider {
     }
 
     fn create_symlink(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
+        return ActionResult::NotImplemented;
+    }
+
+    fn set_time_zone(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 

@@ -172,7 +172,7 @@ impl ProvisionProvider for ProviderBinaryLane {
             println!("{} regions:", results.regions.len());
 
             let mut clp = ColumnListPrinter::new(3)
-                .add_titles(["id", "name", "available"]);
+                .add_titles(["ID", "Name", "Available"]);
 
             for region in &results.regions {
                 clp.add_row_strings(&[&region.slug, &region.name, if region.available {"true"} else {"false"}]);
@@ -186,8 +186,8 @@ impl ProvisionProvider for ProviderBinaryLane {
             println!("{} plans:", results.sizes.len());
 
             let mut clp = ColumnListPrinter::new(6)
-                .set_alignment_multiple(&vec![2usize, 3, 4, 5], Alignment::Right)
-                .add_titles(["id", "cpus", "memory", "disk", "transfer", "price"]);
+                .set_alignment_multiple(&[1usize, 2, 3, 4, 5], Alignment::Right)
+                .add_titles(["ID", "vcpus", "Memory", "Disk", "Transfer", "Price"]);
 
             for size in &results.sizes {
                 clp.add_row_strings(&[&size.slug, &format!("{}", size.vcpus), &format!("{} MB", size.memory),
@@ -201,7 +201,8 @@ impl ProvisionProvider for ProviderBinaryLane {
 
             println!("{} OS images:", results.images.len());
 
-            let mut clp = ColumnListPrinter::new(5);
+            let mut clp = ColumnListPrinter::new(5)
+                .add_titles(["ID", "Distribution", "Type", "Name", "Status"]);
 
             for image in &results.images {
                 clp.add_row_strings(&[&format!("{}", image.id), &image.distribution, &image.ttype, &image.full_name, &image.status]);

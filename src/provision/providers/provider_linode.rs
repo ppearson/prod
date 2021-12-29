@@ -163,7 +163,8 @@ impl ProvisionProvider for ProviderLinode {
 
             println!("{} regions:", results.data.len());
 
-            let mut clp = ColumnListPrinter::new(2);
+            let mut clp = ColumnListPrinter::new(2)
+                .add_titles(["ID", "Country"]);
 
             for region in &results.data {
                 clp.add_row_strings(&[&region.id, &region.country]);
@@ -176,11 +177,13 @@ impl ProvisionProvider for ProviderLinode {
 
             println!("{} plans:", results.data.len());
 
-            let mut clp = ColumnListPrinter::new(5).set_alignment_multiple(&vec![2usize, 3, 4], Alignment::Right);
+            let mut clp = ColumnListPrinter::new(7)
+                .set_alignment_multiple(&[2usize, 3, 4, 5, 6], Alignment::Right)
+                .add_titles(["ID", "Label", "vcpus", "Memory", "Disk", "Transfer", "Price"]);
 
             for plan in &results.data {
-                clp.add_row_strings(&[&plan.id, &plan.label, &format!("{} MB", plan.memory), &format!("{} MB", plan.disk),
-                                    &format!("${}", plan.price.monthly)]);
+                clp.add_row_strings(&[&plan.id, &plan.label, &format!("{}", plan.vcpus), &format!("{} MB", plan.memory), &format!("{} MB", plan.disk),
+                                    &format!("{} MB", plan.transfer), &format!("${}", plan.price.monthly)]);
             }
 
             print!("{}", clp);
@@ -190,7 +193,8 @@ impl ProvisionProvider for ProviderLinode {
 
             println!("{} OS images:", results.data.len());
 
-            let mut clp = ColumnListPrinter::new(3);
+            let mut clp = ColumnListPrinter::new(3)
+                .add_titles(["ID", "Label", "Vendor"]);
 
             for image in &results.data {
                 clp.add_row_strings(&[&image.id, &image.label, &image.vendor]);

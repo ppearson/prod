@@ -1,0 +1,10 @@
+# Create a Digital Ocean $5 Droplet instance running Debian 11
+provider: digital_ocean
+action: createInstance
+
+region: sgp1
+image: 92517214
+size: s-1vcpu-1gb
+root_pass: o2t34svsg5de5hhd0b
+name: mysmallserver
+

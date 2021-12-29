@@ -168,7 +168,8 @@ impl ProvisionProvider for ProviderVultr {
 
             println!("{} regions:", results.regions.len());
 
-            let mut clp = ColumnListPrinter::new(4);
+            let mut clp = ColumnListPrinter::new(4)
+                .add_titles(["ID", "City", "Country", "Continent"]);
             for region in &results.regions {
                 clp.add_row_strings(&[&region.id, &region.city, &region.country, &region.continent]);
             }
@@ -180,9 +181,11 @@ impl ProvisionProvider for ProviderVultr {
 
             println!("{} plans:", results.plans.len());
 
-            let mut clp = ColumnListPrinter::new(5).set_alignment_multiple(&vec![1usize, 2, 3, 4], Alignment::Right);
+            let mut clp = ColumnListPrinter::new(6)
+                .set_alignment_multiple(&[1usize, 2, 3, 4, 5], Alignment::Right)
+                .add_titles(["ID", "vcpus", "Disk", "Memory", "Bandwidth", "Cost"]);
             for plan in &results.plans {
-                clp.add_row_strings(&[&format!("{}", plan.id), &format!("{} GB", plan.disk), &format!("{} MB", plan.ram),
+                clp.add_row_strings(&[&plan.id, &format!("{}", plan.vcpu_count), &format!("{} GB", plan.disk), &format!("{} MB", plan.ram),
                                                 &format!("{} GB", plan.bandwidth), &format!("${:.1}", plan.monthly_cost)]);
             }
 
@@ -193,7 +196,8 @@ impl ProvisionProvider for ProviderVultr {
 
             println!("{} OS images:", results.os.len());
 
-            let mut clp = ColumnListPrinter::new(4);
+            let mut clp = ColumnListPrinter::new(4)
+                .add_titles(["ID", "Name", "Arch", "Family"]);
             for image in &results.os {
                 clp.add_row_strings(&[&format!("{}", image.id), &image.name, &image.arch, &image.family]);
             }
@@ -240,7 +244,7 @@ impl ProvisionProvider for ProviderVultr {
             "label": label_str,
             "os_id": os_id,
             "enable_ipv6": enable_ipv6,
-            "backups": backups,
+            "backups": if backups {"enabled"} else {"disabled"},
         });
 
         if !hostname.is_empty() {
@@ -370,7 +374,7 @@ impl ProvisionProvider for ProviderVultr {
             }
             let instance_details = instance_details.unwrap().instance;
 
-            println!("InstanceDetails (t:{}) \n{:?}\n", try_count, instance_details);
+//            println!("InstanceDetails (t:{}) \n{:?}\n", try_count, instance_details);
 
             if !have_ip && instance_details.main_ip != "0.0.0.0" {
                 // we now hopefully have a valid IP

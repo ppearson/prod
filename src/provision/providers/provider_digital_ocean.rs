@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 use crate::provision::provision_provider::{ProvisionProvider};
-use crate::provision::provision_common::{ProvisionActionType, ProvisionActionResult, ActionResultValues};
+use crate::provision::provision_common::{ProvisionActionType, ProvisionActionResult, ActionResultValues, ProvisionResponseWaitType};
 use crate::provision::provision_manager::{ListType};
 use crate::provision::provision_params::{ProvisionParams};
 
@@ -77,6 +77,55 @@ struct RegionResultItem {
 #[derive(Serialize, Deserialize)]
 struct RegionListResults {
     regions: Vec<RegionResultItem>
+}
+
+#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize)]
+struct Networkv4 {
+    ip_address:     String,
+    netmask:        String,
+    gateway:        String,
+
+    #[serde(rename = "type")]
+    ttype:          String,    
+}
+
+#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize)]
+struct DropletNetworks {
+    v4:         Vec<Networkv4>,
+}
+
+#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize)]
+struct DropletInstanceDetailsInner {
+    id:         u64,
+    name:       String,
+    memory:     u32,
+    disk:       u32,
+
+    locked:     bool,
+
+    status:     String,
+
+    networks:   DropletNetworks,
+}
+
+#[derive(Serialize, Deserialize)]
+struct DropletInstanceDetails {
+    droplet: DropletInstanceDetailsInner,
+}
+
+impl DropletInstanceDetails {
+    fn get_public_v4_network_ip(&self) -> Option<String> {
+        for net in &self.droplet.networks.v4 {
+            if net.ttype == "public" && !net.ip_address.is_empty() {
+                return Some(net.ip_address.clone());
+            }
+        }
+
+        return None;
+    }
 }
 
 pub struct ProviderDigitalOcean {
@@ -163,7 +212,7 @@ impl ProvisionProvider for ProviderDigitalOcean {
             println!("{} regions:", results.regions.len());
 
             let mut clp = ColumnListPrinter::new(3)
-                .add_titles(["id", "name", "available"]);
+                .add_titles(["ID", "Name", "Available"]);
 
             for region in &results.regions {
                 clp.add_row_strings(&[&region.slug, &region.name, if region.available {"true"} else {"false"}]);
@@ -177,8 +226,8 @@ impl ProvisionProvider for ProviderDigitalOcean {
             println!("{} plans:", results.sizes.len());
 
             let mut clp = ColumnListPrinter::new(7)
-                .set_alignment_multiple(&vec![2usize, 3, 4, 5, 6], Alignment::Right)
-                .add_titles(["id", "desc", "cpus", "memory", "disk", "transfer", "price"]);
+                .set_alignment_multiple(&[2usize, 3, 4, 5, 6], Alignment::Right)
+                .add_titles(["ID", "Desc", "vcpus", "Memory", "Disk", "Transfer", "Price"]);
 
             for size in &results.sizes {
                 clp.add_row_strings(&[&size.slug, &size.description, &format!("{}", size.vcpus), &format!("{} MB", size.memory),
@@ -192,7 +241,8 @@ impl ProvisionProvider for ProviderDigitalOcean {
 
             println!("{} OS images:", results.images.len());
 
-            let mut clp = ColumnListPrinter::new(4);
+            let mut clp = ColumnListPrinter::new(4)
+                .add_titles(["ID", "Distribution", "Description", "Status"]);
 
             for image in &results.images {
                 clp.add_row_strings(&[&format!("{}", image.id), &image.distribution, &image.description, &image.status]);
@@ -283,115 +333,154 @@ impl ProvisionProvider for ProviderDigitalOcean {
         }
         
         let resp_string = resp.unwrap().into_string().unwrap();
-        let parsed_response = serde_json::from_str::<Value>(&resp_string);
-        if parsed_response.is_err() {
-            eprintln!("Error parsing json response from digitalocean.com: {}", resp_string);
+
+        let droplet_details = serde_json::from_str(&resp_string);
+        if droplet_details.is_err() {
+            eprintln!("Error parsing json response from api.digitalocean.com: {}", resp_string);
             return ProvisionActionResult::Failed("".to_string());
         }
+
+        let droplet_details: DropletInstanceDetails = droplet_details.unwrap();
+        let droplet_details = droplet_details.droplet;
 
         let mut result_values = ActionResultValues::new();
 
-        let parsed_value_map = parsed_response.ok().unwrap();
-        eprintln!("Created Digital Ocean droplet instance okay:\n{:?}", parsed_value_map);
+        result_values.values.insert("id".to_string(), droplet_details.id.to_string());
 
-        // check it's an array object and other stuff (i.e. check the json is expected)
-        if parsed_value_map.is_object() {
-            let value_as_object = parsed_value_map.as_object().unwrap();
-            // we only expect 1 actual instance value...
-            let droplet_map = value_as_object.get("droplet");
-            if droplet_map.is_none() {
-                eprintln!("Error: unexpected json response2 from digitalocean.com: {}", resp_string);
-                return ProvisionActionResult::Failed("".to_string());
-            }
-            let droplet_map = droplet_map.unwrap();
-    
-            // otherwise, hopefully we have what we need...
-//            eprintln!("\nSingular response: {:?}", droplet_map);
+        eprintln!("Digital Ocean droplet created with id: {} ...", droplet_details.id);
 
-            // extract the values we want
-            let id_val = droplet_map.get("id");
-            match id_val {
-                Some(val) => {
-                    result_values.values.insert("id".to_string(), val.as_u64().unwrap().to_string());
-                },
-                _ => {
-                    eprintln!("Error: unexpected json response3 from digitalocean.com - missing 'id' param: {}", resp_string);
-                    return ProvisionActionResult::Failed("".to_string());
-                }
-            }
-        }
-        else {
-            eprintln!("Error: unexpected json response1 from digitalocean.com: {}", resp_string);
-            return ProvisionActionResult::Failed("".to_string());
+        if params.wait_type == ProvisionResponseWaitType::ReturnImmediatelyAfterAPIRequest {
+            return ProvisionActionResult::ActionCreatedInProgress(result_values);
         }
 
-        eprintln!("Digital Ocean droplet created...");
         eprintln!("Waiting for droplet instance to spool up with IP address...");
 
         // to get hold of the IP address, we need to do an additional API query to the
-        // get instance API as it's still in the process of being spooled up..
+        // get droplet API as it's still in the process of being spooled up..
 
-        let instance_id = result_values.values.get("id").unwrap();
+        let mut found_ip = false;
 
-        let max_tries = 5;
+        let max_tries = 10;
         let mut try_count = 0;
+
+        let droplet_id = result_values.values.get("id").unwrap().clone();
 
         while try_count < max_tries {
             // sleep a bit to give things a chance...
             std::thread::sleep(std::time::Duration::from_secs(15));
 
-            let droplet_info = self.get_value_map_from_get_droplet_call(instance_id);
-            if droplet_info.is_err() {
-                return droplet_info.err().unwrap();
+            let droplet_details = self.get_droplet_details(&droplet_id);
+            if droplet_details.is_err() {
+                return droplet_details.err().unwrap();
             }
-            let droplet_info_map = droplet_info.unwrap();
+            let droplet_details = droplet_details.unwrap();
 
- //           let status_str =  
+            let ipv4_address = droplet_details.get_public_v4_network_ip();
+            if !found_ip {
+                if let Some(str) = ipv4_address {
+                    found_ip = true;
+                    result_values.values.insert("ip".to_string(), str.clone());
 
-            // extract the values we want
-            let _networks_val = droplet_info_map.get("networks");
+                    eprintln!("Have droplet instance IP: {}", str.clone());
+
+                    // so we now have an IP, but the droplet still isn't ready to be used, but maybe that's
+                    // all we need...
+                    if params.wait_type == ProvisionResponseWaitType::WaitForResourceCreationOrModification {
+                        // this is sufficient, so return out...
+                        return ProvisionActionResult::ActionCreatedInProgress(result_values);
+                    }
+
+                    eprintln!("Waiting for server to finish install/setup...");
+                }
+            }
+
+            if found_ip && droplet_details.droplet.status == "active" {
+                return ProvisionActionResult::ActionCreatedDone(result_values);
+            }
 
             try_count += 1;
         }
         
         return ProvisionActionResult::ActionCreatedInProgress(result_values);
     }
+
+    fn delete_instance(&self, params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
+        let instance_id = params.get_string_value("instance_id", "");
+        let full_url = format!("https://api.digitalocean.com/v2/droplets/{}", instance_id);
+
+        let resp = ureq::delete(&full_url)
+            .set("Authorization", &format!("Bearer {}", self.digital_ocean_api_token))
+            .call();
+
+        // TODO: there's an insane amount of boilerplate error handling and response
+        //       decoding going on here... Try and condense it...
+        
+        // TODO: make some of this re-useable for multiple actions...
+        if resp.is_err() {
+            match resp.err() {
+                Some(Error::Status(code, response)) => {
+                    // server returned an error code we weren't expecting...
+                    match code {
+                        400 => {
+                            eprintln!("Error: Bad request error: {}", response.into_string().unwrap());
+                            return ProvisionActionResult::ErrorAuthenticationIssue("".to_string());
+                        },
+                        401 => {
+                            eprintln!("Error: authentication error with Digital Ocean API: {}", response.into_string().unwrap());
+                            return ProvisionActionResult::ErrorAuthenticationIssue("".to_string());
+                        },
+                        404 => {
+                            eprintln!("Error: Not found response from Digital Ocean API: {}", response.into_string().unwrap());
+                            return ProvisionActionResult::Failed("".to_string());
+                        }
+                        _ => {
+                            
+                        }
+                    }
+                    eprintln!("Error deleting droplet instance0: code: {}, resp: {:?}", code, response);
+                },
+                Some(e) => {
+                    eprintln!("Error deleting droplet instance1: {:?}", e);
+                }
+                _ => {
+                    // some sort of transport/io error...
+                    eprintln!("Error deleting instance2: ");
+                }
+            }
+            return ProvisionActionResult::Failed("".to_string());
+        }
+
+        // TODO: should be response code 204 for success...
+        
+        // response should be empty...
+        let _resp_string = resp.unwrap().into_string().unwrap();
+
+        return ProvisionActionResult::ActionCreatedInProgress(ActionResultValues::new());
+    }
 }
 
 impl ProviderDigitalOcean {
-    fn get_value_map_from_get_droplet_call(&self, droplet_id: &str) -> Result<serde_json::Value, ProvisionActionResult> {
+    fn get_droplet_details(&self, droplet_id: &str) -> Result<DropletInstanceDetails, ProvisionActionResult> {
         let url = format!("https://api.digitalocean.com/v2/droplets/{}", &droplet_id);
         let get_droplet_response = ureq::get(&url)
             .set("Authorization", &format!("Bearer {}", self.digital_ocean_api_token))
             .call();
-
-        if get_droplet_response.is_err() {
-            let resp_string = get_droplet_response.unwrap().into_string().unwrap();
-            eprintln!("Error parsing json response from digitalocean.com for get droplet call: {}", resp_string);
+        
+        if let Err(error) = get_droplet_response {
+            let resp_string = error.to_string();
+            eprintln!("Error getting json response from digitalocean.com for get droplet call: {}", resp_string);
             return Err(ProvisionActionResult::Failed("".to_string()));
         }
 
         let resp_string = get_droplet_response.unwrap().into_string().unwrap();
-        let parsed_response = serde_json::from_str::<Value>(&resp_string);
-        if parsed_response.is_err() {
+
+        let droplet_details = serde_json::from_str(&resp_string);
+        if droplet_details.is_err() {
             eprintln!("Error parsing json response from digitalocean.com for get droplet call: {}", resp_string);
             return Err(ProvisionActionResult::Failed("".to_string()));
         }
+        let droplet_details: DropletInstanceDetails = droplet_details.unwrap();
 
-        let parsed_value_map = parsed_response.ok().unwrap();
-        if parsed_value_map.is_object() {
-            let value_as_object = parsed_value_map.as_object().unwrap();
-            // we only expect 1 actual instance value...
-            let droplet_map = value_as_object.get("droplet");
-            if droplet_map.is_none() {
-                eprintln!("Error: unexpected json response2 from digitalocean.com for get droplet call: {}", resp_string);
-                return Err(ProvisionActionResult::Failed("".to_string()));
-            }
-            let droplet_map = droplet_map.unwrap().clone();
-
-            return Ok(droplet_map);
-        }
-
-        return Err(ProvisionActionResult::Failed("".to_string()))
+        return Ok(droplet_details);
     }
 }

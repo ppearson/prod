@@ -139,17 +139,14 @@ impl ColumnListPrinter {
                 let item_length = title.chars().count();
                 let padding_required = max_column_widths[count] - item_length;
                 let col_properties = &self.column_properties[count];
+                let padding_chars = " ".repeat(padding_required);
 
                 if col_properties.text_alignment == Alignment::Left {
                     final_result.push_str(title.as_str());
-                    for _i in 0..padding_required {
-                        final_result.push(' ');
-                    }
+                    final_result.push_str(&padding_chars);
                 }
                 else {
-                    for _i in 0..padding_required {
-                        final_result.push(' ');
-                    }
+                    final_result.push_str(&padding_chars);
                     final_result.push_str(title.as_str());
                 }
 
@@ -174,19 +171,16 @@ impl ColumnListPrinter {
                 let item_length = item_string.chars().count();
 
                 let padding_required = max_column_widths[col] - item_length;
+                let padding_chars = " ".repeat(padding_required);
                 
                 let col_properties = &self.column_properties[col];
 
                 if col_properties.text_alignment == Alignment::Left {
                     final_result.push_str(item_string.as_str());
-                    for _i in 0..padding_required {
-                        final_result.push(' ');
-                    }
+                    final_result.push_str(&padding_chars);
                 }
                 else {
-                    for _i in 0..padding_required {
-                        final_result.push(' ');
-                    }
+                    final_result.push_str(&padding_chars);
                     final_result.push_str(item_string.as_str());
                 }
 

@@ -71,7 +71,7 @@ impl ControlManager {
 #[cfg(not(feature = "ssh"))]
         let connection = ControlSession::new_dummy_debug(session_params);
 
-        if let None = connection {
+        if connection.is_none() {
             eprintln!("Error connecting to hostname...");
             return CommandResult::ErrorCantConnect("".to_string());
         }
@@ -149,7 +149,7 @@ impl ControlManager {
 #[cfg(not(feature = "ssh"))]
         let connection = ControlSession::new_dummy_debug(session_params);
 
-        if let None = connection {
+        if connection.is_none() {
             eprintln!("Error connecting to hostname...");
             return;
         }
@@ -204,6 +204,9 @@ impl ControlManager {
                 ControlActionType::CreateSymlink => {
                     provider.create_symlink(&mut connection, action)
                 },
+                ControlActionType::SetTimeZone => {
+                    provider.set_time_zone(&mut connection, action)
+                }
                 ControlActionType::NotSet | ControlActionType::Unrecognised => {
                    ActionResult::Failed("Invalid Action Type".to_string())
                 }
