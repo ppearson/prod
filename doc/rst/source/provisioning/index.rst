@@ -6,7 +6,7 @@ Introduction
 ------------
 
 Provision is the process of creating or modifying resources: in Prod's case, this generally means VPS cloud servers from
-providers such as Linode, Vultr or Digital Ocean.
+providers such as Vultr, Linode, Binary Lane or Digital Ocean.
 
 .. toctree::
    :maxdepth: 2
@@ -17,8 +17,8 @@ providers such as Linode, Vultr or Digital Ocean.
 Provision Provider Support
 --------------------------
 
-Below is a basic overview of what's currently supported for the three direct-API providers currently, as well as the
-more generic OpenStack provider which several other privders provide APIs for.
+Below is a basic overview of what's currently supported for the four direct-API providers currently, as well as the
+more generic OpenStack provider which several other providers provide APIs for.
 
 +---------------------------------+---------+---------+---------------+-------------+-----------+
 | Feature                         | Vultr   | Linode  | Digital Ocean | Binary Lane | OpenStack |
@@ -29,9 +29,9 @@ more generic OpenStack provider which several other privders provide APIs for.
 +---------------------------------+---------+---------+---------------+-------------+-----------+
 | List Operating Systems / Images | |tick|  | |tick|  | |tick|        | |tick|      | |cross|   |
 +---------------------------------+---------+---------+---------------+-------------+-----------+
-| Create Cloud Instance           | |tick|  | |tick|  | |tick|        | |cross|     | |cross|   |
+| Create Cloud Instance           | |tick|  | |tick|  | |tick|        | |tick|      | |cross|   |
 +---------------------------------+---------+---------+---------------+-------------+-----------+
-| Delete Cloud Instance           | |tick|  | |tick|  | |tick|        | |cross|     | |cross|   |
+| Delete Cloud Instance           | |tick|  | |tick|  | |tick|        | |tick|      | |cross|   |
 +---------------------------------+---------+---------+---------------+-------------+-----------+
 
 Using Providers
@@ -74,6 +74,24 @@ if required):
 
 ``prod provision <path_to_provision_file.txt>``
 
+as an example, running the following example recipe file for Vultr (after setting up a Vultr API Key and setting the $PROD_VULTR_API_KEY env variable):
+
+``prod provision examples/provision/vultr_create_instance_small_sydney.txt``
+
+Will create a $5 Vultr instance with 25 GB of storage in Sydney, producing this output to the terminal when the instance has
+finished provisioning:
+
+.. code-block:: none
+
+    Vultr instance created, id: 56f75a46-2ea1-2c23-51b5-d33ab4e16a42 ...
+    Waiting for instance to spool up...
+    Have instance IP: 104.32.54.22
+    Waiting for server to finish install/setup...
+    Cloud instance created successfully:
+    
+    id:             56f75a46-2ea1-2c23-51b5-d33ab4e16a42
+    ip:             104.32.54.22                       
+    root_password:  SH}Rjrqeg}4tp34hrtheff
 
 
 

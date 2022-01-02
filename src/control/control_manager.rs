@@ -161,7 +161,8 @@ impl ControlManager {
         map.insert(ControlActionType::AddUser, &closure as &dyn Fn(_, _) -> _);
 */
 
-        eprintln!("Running actions...");
+        let num_actions = actions.actions.len();
+        eprintln!("Running {} {}...", num_actions, if num_actions == 1 {"action"} else {"actions"});
 
         let mut success = true;
 

@@ -1,0 +1,8 @@
+# Create a Binary Lane $3.5 instance in Sydney running Debian 11
+provider: binary_lane
+action: createInstance
+
+region: syd
+name: server1
+image: 31
+size: std-min

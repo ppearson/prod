@@ -79,7 +79,7 @@ impl ActionProvider for AProviderLinuxDebian {
         if !action.params.has_value("username") {
             return ActionResult::InvalidParams("The 'username' parameter was not specified.".to_string());
         }
-        if  !action.params.has_value("password") {
+        if !action.params.has_value("password") {
             return ActionResult::InvalidParams("The 'password' parameter was not specified.".to_string());
         }
 
@@ -134,8 +134,6 @@ impl ActionProvider for AProviderLinuxDebian {
                 connection.conn.send_command(&self.post_process_command(&usermod_command));
             }
         }
-
-//        eprintln!("Added user okay.");
 
         return ActionResult::Success;
     }
@@ -198,7 +196,7 @@ impl ActionProvider for AProviderLinuxDebian {
         }
 
         if packages_string.is_empty() {
-            return ActionResult::InvalidParams("The 'packages' string list was empty.".to_string());
+            return ActionResult::InvalidParams("The resulting 'packages' string list was empty.".to_string());
         }
 
         // with some providers (Vultr), apt-get runs automatically just after the instance first starts,
@@ -237,7 +235,12 @@ impl ActionProvider for AProviderLinuxDebian {
             connection.conn.send_command(&self.post_process_command(&apt_get_command));
         }
 
-        let apt_get_command = format!("apt-get -y install {}", packages_string);
+        // Note: first time around, unless we export this DEBIAN_FRONTEND env variable, we get a
+        //       debconf / dpkg-preconfigure issue with $TERM apparently being unset, and complaints
+        //       about the frontend not being useable. Interestingly, without setting the env variable,
+        //       trying again after the first failure works, and it's not time-dependent...
+
+        let apt_get_command = format!("export DEBIAN_FRONTEND=noninteractive; apt-get -y install {}", packages_string);
         connection.conn.send_command(&self.post_process_command(&apt_get_command));
 
         if let Some(str) = connection.conn.get_previous_stderr_response() {
@@ -487,6 +490,28 @@ impl ActionProvider for AProviderLinuxDebian {
         if let Some(group) = action.params.get_string_value("group") {
             let chgrp_command = format!("chgrp {} {}", group, dest_path);
             connection.conn.send_command(&self.post_process_command(&chgrp_command));
+        }
+
+        // see if we should also extract it
+        if let Some(extract_dir) = action.params.get_string_value("extractDir") {
+            // check this directory actually exists...
+            if !extract_dir.is_empty()
+            {
+                let test_cmd = format!("test -d {} && echo \"yep\"", extract_dir);
+                connection.conn.send_command(&self.post_process_command(&test_cmd));
+
+                // check the output is "yep"
+                if connection.conn.get_previous_stdout_response().is_empty() {
+                    // doesn't exist...
+                    return ActionResult::Failed(format!("The 'extractDir' parameter directory: '{}' does not exist.", extract_dir));
+                }
+
+                // TODO: and check permissions?
+
+                // now attempt to extract the file
+                let tar_cmd = format!("tar -xf {} -C {}", dest_path, extract_dir);
+                connection.conn.send_command(&self.post_process_command(&tar_cmd));
+            }
         }
 
         return ActionResult::Success;

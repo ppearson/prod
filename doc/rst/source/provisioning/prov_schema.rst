@@ -20,7 +20,7 @@ General Parameters
 ------------------
 
 ``provider``
-    A string representing the name of the provider to use: "linode", "vultr", etc. This is a required parameter, and must
+    A string representing the name of the provider to use: "linode", "vultr", "binary_lane", "digital_ocean", etc. This is a required parameter, and must
     be specified.
 
 ``action``
@@ -44,8 +44,8 @@ General Parameters
         * - waitForResourceCreation
           - Waits until the resource in question is *partially* available - at least in terms of known details. i.e. for creation
             of VPS instances, it will wait until an IP address of the instance is known.
-        * - waitForResourceReady
-          - Waits until the resource in question is fully ready to be used.
+        * - waitForResourceFinalised
+          - Waits until the resource in question is fully ready to be used. This is the default if no wait type is specified.
 
 
 Provision Actions
@@ -136,6 +136,45 @@ Example recipe file:
     region: syd
     # debian 11 x64
     os_id: 477
+  
+**Binary Lane**
+
+.. list-table::
+    :widths: 8 5 30
+    :header-rows: 1
+    :stub-columns: 1
+
+    * - Parameter
+      - Type
+      - Description
+    * - ``region``
+      - Required
+      - Region value, representing what region to use to create a cloud instance in.
+    * - ``size``
+      - Required
+      - Size value, representing what plan type / size of instance to create.
+    * - ``image``
+      - Required
+      - Image value, representing the OS image type to use to create the instance.
+    * - ``name``
+      - Optional
+      - String value representing the label or name of the instance.
+    * - ``ipv6``
+      - Optional
+      - Bool value indicating whether IPv6 should be enabled on the instance. Defaults to ``false``.
+  
+Example recipe file:
+
+.. code-block:: none
+
+    # Create a Binary Lane $3.5 instance in Sydney running Debian 11
+    provider: binary_lane
+    action: createInstance
+
+    region: syd
+    name: server1
+    image: 31
+    size: std-min
 
 **Digital Ocean**
 
