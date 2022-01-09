@@ -19,7 +19,7 @@ extern crate rpassword;
 use rpassword::read_password;
 
 use crate::control::control_actions::{ActionResult, ControlActionType};
-use crate::control::control_common::{ControlSession, ControlSessionParams};
+use crate::control::control_common::{ControlSession, ControlSessionParams, ControlSessionUserAuth, UserAuthUserPass};
 
 use super::control_actions::{ControlActions, ActionProvider};
 
@@ -63,7 +63,9 @@ impl ControlManager {
 
         let username = "peter";
 
-        let session_params = ControlSessionParams::new(&host_target, &username, &password, true);
+        let control_session_user_auth = ControlSessionUserAuth::UserPass(UserAuthUserPass::new(&username, &password));
+
+        let session_params = ControlSessionParams::new(&host_target, control_session_user_auth, true);
 
 #[cfg(feature = "ssh")]
         let connection = ControlSession::new_ssh(session_params);
@@ -89,19 +91,19 @@ impl ControlManager {
 
         // TODO: come up with a better way of handling this partial initialisation / ordering dilema to work
         //       out if a provider exists before querying for usernames and passwords...
-        let mut session_params = ControlSessionParams::new("", "", "", true);
+        let mut session_params = ControlSessionParams::new("", actions.auth.clone(), true);
 
         // temp creation to check it exists as a provider name...
         let provider = self.create_provider(&actions.provider, session_params);
         if provider.is_none() {
-            eprintln!("Error: Can't find provider: '{}'.", actions.provider);
+            eprintln!("Error: Can't find control provider: '{}'.", actions.provider);
             return;
         }
 
         let provider = provider.unwrap();
 
         let mut asked_for_hostname = false;
-        let mut asked_for_username = false;
+//        let mut asked_for_username = false;
 
         let mut hostname = String::new();
         if actions.host.is_empty() || actions.host == "$PROMPT" {
@@ -118,30 +120,65 @@ impl ControlManager {
         // connect to host
         let host_target = hostname;
 
+        // we take a local copy, so we can modify it and pass it in to be used in a final state...
+        let mut auth = actions.auth.clone();
+
+        // attempt to generalise the 'user' part for both enums, as it's needed for both,
+        // but it makes things a bit verbose...
+        let config_username = 
+            match &auth {
+                ControlSessionUserAuth::UserPass(userpass) => &userpass.username,
+                ControlSessionUserAuth::PublicKey(publickey) => &publickey.username,
+            }.clone();
+
         let mut username = String::new();
-        if actions.user.is_empty() || actions.user == "$PROMPT" {
+        if config_username.is_empty() || config_username == "$PROMPT" {
             eprintln!("Please enter username to authenticate with:");
             std::io::stdin().read_line(&mut username).expect("Error reading username from std input");
             username = username.trim().to_string();
 
-            asked_for_username = true;
+//            asked_for_username = true;
         }
         else {
-            username = actions.user.clone();
+            username = config_username;
         }
 
-        if !asked_for_hostname {
-            println!("Enter password for user '{}' on host '{}':", &username, &host_target);
+        // now do the two enum types separately, and apply the above username to the contents of that
+        // enum...
+        if let ControlSessionUserAuth::UserPass(userpass) = &mut auth {
+            userpass.username = username.clone();
+
+            // TODO: do we want to maybe allow empty passwords?
+            if userpass.password.is_empty() || userpass.password == "$PROMPT" {
+                if !asked_for_hostname {
+                    eprintln!("Enter password for user '{}' on host '{}':", &username, &host_target);
+                }
+                else {
+                    eprintln!("Enter password:");
+                }
+                userpass.password = read_password().unwrap();
+            }
+            
         }
-        else {
-            println!("Enter password:");
+        else if let ControlSessionUserAuth::PublicKey(publickey) = &mut auth {
+            publickey.username = username.clone();
+
+            // explicitly allow empty passphrases for now...
+            if publickey.passphrase == "$PROMPT" {
+                if !asked_for_hostname {
+                    eprintln!("Enter key passphrase for user '{}' on host '{}':", &username, &host_target);
+                }
+                else {
+                    eprintln!("Enter key passphrase:");
+                }
+                publickey.passphrase = read_password().unwrap();
+            }
         }
-        let password = read_password().unwrap();
 
         // Now configure ControlSessionParams properly here...
         // TODO: as above, not really happy with this, but there's various "not great" ways of solving the issue
         //       I don't like, so I'm happier (just) with this for the moment...
-        session_params = ControlSessionParams::new(&host_target, &username, &password, true);
+        session_params = ControlSessionParams::new(&host_target, auth, true);
 
 #[cfg(feature = "ssh")]
         let connection = ControlSession::new_ssh(session_params);

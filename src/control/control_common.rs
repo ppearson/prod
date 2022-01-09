@@ -37,11 +37,38 @@ pub enum UserType {
     Sudo
 }
 
-pub struct ControlSessionUserAuth {
-    // TODO: ssh key stuff...
+#[derive(Clone, Debug)]
+pub struct UserAuthUserPass {
+    pub username:           String,
+    pub password:           String,
+}
 
-    username:           String,
-    password:           String,
+impl UserAuthUserPass {
+    pub fn new(user: &str, pass: &str) -> UserAuthUserPass {
+        return UserAuthUserPass { username: user.to_string(), password: pass.to_string() };
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct UserAuthPublicKey {
+    pub username:           String,
+    pub publickey_path:     String,
+    pub privatekey_path:    String,
+    pub passphrase:         String,
+}
+
+impl UserAuthPublicKey {
+    // TODO: pass in as String here so this is less verbose?
+    pub fn new(username: &str, publickey_path: &str, privatekey_path: &str, passphrase: &str) -> UserAuthPublicKey {
+        return UserAuthPublicKey { username: username.to_string(), publickey_path: publickey_path.to_string(),
+                                   privatekey_path: privatekey_path.to_string(), passphrase: passphrase.to_string() }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum ControlSessionUserAuth {
+    UserPass(UserAuthUserPass),
+    PublicKey(UserAuthPublicKey)
 }
 
 pub struct ControlSessionParams {
@@ -54,10 +81,10 @@ pub hide_commands_from_history:     bool
 }
 
 impl ControlSessionParams {
-    pub fn new(host_target: &str, username: &str, password: &str, hide_commands_from_history: bool) -> ControlSessionParams {
+    pub fn new(host_target: &str, user_auth: ControlSessionUserAuth, hide_commands_from_history: bool) -> ControlSessionParams {
         let user_type = UserType::Standard;
         ControlSessionParams { connection_type: ConnectionType::SSH, host_target: host_target.to_string(),
-                user_auth: ControlSessionUserAuth { username: username.to_string(), password: password.to_string() },
+                user_auth,
                 user_type, hide_commands_from_history }
     }
 }
@@ -82,10 +109,23 @@ impl ControlSession {
 
         sess.set_tcp_stream(tcp_connection);
         sess.handshake().unwrap();
-        let auth_res = sess.userauth_password(&control_session_params.user_auth.username, &control_session_params.user_auth.password);
-        if auth_res.is_err() {
-            eprintln!("Error: Authentication failure with user: {}...", control_session_params.user_auth.username);
-            return None;
+        let auth_res;
+        if let ControlSessionUserAuth::UserPass(user_pass) = &control_session_params.user_auth {
+            auth_res = sess.userauth_password(&user_pass.username, &user_pass.password);
+            if auth_res.is_err() {
+                eprintln!("Error: Authentication failure with user: {}...", &user_pass.username);
+                return None;
+            }
+        }
+        else if let ControlSessionUserAuth::PublicKey(pub_key) = &control_session_params.user_auth {
+            let pub_key_path = Some(std::path::Path::new(&pub_key.publickey_path));
+            let priv_key_path = std::path::Path::new(&pub_key.privatekey_path);
+            auth_res = sess.userauth_pubkey_file(&pub_key.username, pub_key_path,
+                                                 priv_key_path, Some(&pub_key.passphrase));
+            if auth_res.is_err() {
+                eprintln!("Error: Authentication failure with phrase/key for user: {}...", &pub_key.username);
+                return None;
+            }
         }
 
         let ssh_connection = ControlConnectionSSH::new(sess);

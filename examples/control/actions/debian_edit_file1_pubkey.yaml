@@ -1,0 +1,18 @@
+---
+ provider: linux_debian
+ host: localhost
+ user: $PROMPT
+ publicKeyPath: /home/test1/.ssh/test1.pub
+ privateKeyPath: /home/test1/.ssh/test1
+ actions:
+ - editFile:
+    backup: true
+    filepath: "/home/test1/test11.json"
+    replaceLine:
+      matchString: '"setting1-enabled": false,'
+      replaceString: '    "setting1-enabled": true,'
+      onceOnly: true
+      reportFailure: false
+
+
+

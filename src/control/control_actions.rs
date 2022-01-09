@@ -22,8 +22,9 @@ use std::path::{Path};
 use yaml_rust::{Yaml, YamlLoader};
 
 use crate::common::{FileLoadError};
+use crate::control::control_common::UserAuthPublicKey;
 use crate::params::{ParamValue, Params};
-use super::control_common::{ControlSession};
+use super::control_common::{ControlSession, ControlSessionUserAuth, UserAuthUserPass};
 
 // Note: try and keep the convention of <action><item>
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -89,7 +90,8 @@ pub enum ActionResult {
 pub struct ControlActions {
     pub provider:   String,
     pub host:       String,
-    pub user:       String,
+
+    pub auth:       ControlSessionUserAuth,
 
     pub actions:    Vec<ControlAction>,
 }
@@ -102,7 +104,7 @@ pub struct ControlAction {
 
 impl fmt::Display for ControlActions {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Provider: {}, Host: {}, User: {},", self.provider, self.host, self.user)?;
+        writeln!(f, "Provider: {}, Host: {}, User: {},", self.provider, self.host, "")?; // TODO: fix this for auth
         writeln!(f, " actions ({}): {{", self.actions.len())?;
         for action in &self.actions {
             write!(f, "  {}", action)?
@@ -113,7 +115,8 @@ impl fmt::Display for ControlActions {
 
 impl ControlActions {
     pub fn new() -> ControlActions {
-        ControlActions { provider: String::new(), host: String::new(), user: String::new(),
+        ControlActions { provider: String::new(), host: String::new(),
+                         auth: ControlSessionUserAuth::UserPass(UserAuthUserPass::new("", "")),
                          actions: Vec::with_capacity(0)}
     }
 
@@ -161,6 +164,17 @@ impl ControlActions {
                         let doc: &Yaml = &document[0];
                         
                         if let yaml_rust::Yaml::Hash(ref hash) = doc {
+
+                            let auth_params = process_auth_yaml_items(&hash);
+                            if auth_params.is_none() {
+                                // 
+                                eprintln!("Error: couldn't work out auth/user settings for control params");
+                                return Err(FileLoadError::CustomError("Error loading file.".to_string()));
+                            }
+
+                            // otherwise, assume it's okay
+                            control_actions.auth = auth_params.unwrap();
+
                             for (key, value) in hash {
                                 match key.as_str().unwrap() {
                                     "provider" => {
@@ -168,9 +182,6 @@ impl ControlActions {
                                     },
                                     "host" => {
                                         control_actions.host = value.as_str().unwrap().to_string();
-                                    },
-                                    "user" => {
-                                        control_actions.user = value.as_str().unwrap().to_string();
                                     },
                                     "actions" => {
                                         control_actions.ingest_control_actions_yaml_items(&value);
@@ -250,6 +261,101 @@ impl ControlActions {
         }
 
         self.actions.push(new_action);
+    }
+}
+
+fn get_yaml_map_item_as_string(map: &yaml_rust::yaml::Hash, str_val: &str) -> Option<String> {
+    if let Some(item) = map.get(&Yaml::String(str_val.to_string())) {
+        if let Some(item_str) = item.as_str() {
+            return Some(item_str.to_string());
+        }
+    }
+
+    return None;
+}
+
+// Note: this passes through the raw values-as is, we don't do any replacement
+//       or prompting the user at this stage...
+// TODO: maybe return a Result/Err from this, so we get better feedback when there's
+//       a problem?
+fn process_auth_yaml_items(map: &yaml_rust::yaml::Hash) -> Option<ControlSessionUserAuth> {
+    // TODO: this is a mess, the YAML handling is really awkward...
+
+    #[derive(PartialEq)]
+    enum AuthType {
+        Unknown,
+        UserPass,
+        PublicKey
+    }
+
+    let mut auth_type = AuthType::Unknown;
+
+    // if we have an 'authType', that takes precedence...
+    let auth_type_param = get_yaml_map_item_as_string(&map, "authType");
+    if let Some(auth_type_param_str) = auth_type_param {
+        if "userpass".eq_ignore_ascii_case(&auth_type_param_str) {
+            auth_type = AuthType::UserPass; // redundant currently, but...
+        }
+        else if "publickey".eq_ignore_ascii_case(&auth_type_param_str) {
+            auth_type = AuthType::PublicKey;
+        }
+        else {
+            eprintln!("Error: unrecognised control command 'authType' param: '{}'", auth_type_param_str);
+            return None;
+        }
+    }
+
+    // TODO: this can likely be re-done in a less duplicate way, but for the moment, just
+    //       get things working...
+    if auth_type == AuthType::Unknown {
+        // we don't know the auth type, so try and detect it from the params which are present
+
+        let is_pubkey = map.contains_key(&Yaml::String("publicKeyPath".to_string())) ||
+                            map.contains_key(&Yaml::String("privateKeyPath".to_string())) ||
+                            map.contains_key(&Yaml::String("passphrase".to_string()));
+        if is_pubkey {
+            auth_type = AuthType::PublicKey;
+        }
+        else {
+            auth_type = AuthType::UserPass;
+        }
+    }
+
+    let username = get_yaml_map_item_as_string(map, "user").unwrap_or("$PROMPT".to_string());
+
+    if auth_type == AuthType::UserPass {
+        
+        let password = get_yaml_map_item_as_string(map, "password").unwrap_or_default();
+
+        return Some(ControlSessionUserAuth::UserPass(UserAuthUserPass::new(&username, &password)));
+    }
+    else if auth_type == AuthType::PublicKey {
+        
+        // for the moment, check key params are described
+        if !map.contains_key(&Yaml::String("publicKeyPath".to_string())) ||
+                !map.contains_key(&Yaml::String("privateKeyPath".to_string())) {
+            
+            eprintln!("Error: Invalid user auth credentials supplied to control command params. Incomplete key path details were provided.");
+            eprintln!("   Check that the 'publicKeyPath' and 'privateKeyPath' params are supplied if you want to use ssh key authentication.");
+
+            return None;
+        }
+
+        let public_key = get_yaml_map_item_as_string(map, "publicKeyPath").unwrap();
+        let private_key = get_yaml_map_item_as_string(map, "privateKeyPath").unwrap();
+
+        if public_key.is_empty() || private_key.is_empty() {
+            eprintln!("Error: Check that the 'publicKeyPath' and 'privateKeyPath' params are supplied as auth credentials.");
+            return None;
+        }
+
+        let passphrase = get_yaml_map_item_as_string(map, "passphrase").unwrap_or_default();
+
+        return Some(ControlSessionUserAuth::PublicKey(UserAuthPublicKey::new(&username, &public_key, &private_key, &passphrase)));
+    }
+    else {
+        // this shouldn't be possible, but...
+        return None;
     }
 }
 

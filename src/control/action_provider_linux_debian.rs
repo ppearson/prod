@@ -553,6 +553,28 @@ impl ActionProvider for AProviderLinuxDebian {
             connection.conn.send_command(&self.post_process_command(&chgrp_command));
         }
 
+        // see if we should also extract it
+        if let Some(extract_dir) = action.params.get_string_value("extractDir") {
+            // check this directory actually exists...
+            if !extract_dir.is_empty()
+            {
+                let test_cmd = format!("test -d {} && echo \"yep\"", extract_dir);
+                connection.conn.send_command(&self.post_process_command(&test_cmd));
+
+                // check the output is "yep"
+                if connection.conn.get_previous_stdout_response().is_empty() {
+                    // doesn't exist...
+                    return ActionResult::Failed(format!("The 'extractDir' parameter directory: '{}' does not exist.", extract_dir));
+                }
+
+                // TODO: and check permissions?
+
+                // now attempt to extract the file
+                let tar_cmd = format!("tar -xf {} -C {}", dest_path, extract_dir);
+                connection.conn.send_command(&self.post_process_command(&tar_cmd));
+            }
+        }
+
         return ActionResult::Success;
     }
 
