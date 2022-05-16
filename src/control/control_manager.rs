@@ -24,6 +24,7 @@ use crate::control::control_common::{ControlSession, ControlSessionParams, Contr
 use super::control_actions::{ControlActions, ActionProvider};
 
 use super::action_provider_linux_debian;
+use super::action_provider_linux_fedora;
 
 pub struct ControlManager {
     
@@ -48,6 +49,9 @@ impl ControlManager {
     fn create_provider(&self, provider: &str, session_params: ControlSessionParams) -> Option<Box<dyn ActionProvider>> {
         if provider == action_provider_linux_debian::AProviderLinuxDebian::name() {
             return Some(Box::new(action_provider_linux_debian::AProviderLinuxDebian::new(session_params)));
+        }
+        else if provider == action_provider_linux_fedora::AProviderLinuxFedora::name() {
+            return Some(Box::new(action_provider_linux_fedora::AProviderLinuxFedora::new(session_params)));
         }
 
         return None;

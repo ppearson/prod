@@ -25,6 +25,7 @@ use crate::common::{FileLoadError};
 use crate::control::control_common::UserAuthPublicKey;
 use crate::params::{ParamValue, Params};
 use super::control_common::{ControlSession, ControlSessionUserAuth, UserAuthUserPass};
+use super::control_common::{ControlSessionParams, UserType};
 
 // Note: try and keep the convention of <action><item>
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -380,6 +381,34 @@ pub trait ActionProvider {
     // not sure about this one - ideally it'd be static, but...
     fn name(&self) -> String {
         return "".to_string();
+    }
+
+    fn get_session_params(&self) -> Option<&ControlSessionParams> {
+        return None;
+    }
+
+    // TODO: we might have to make this a derived trait item at some point, but for the moment, we can just
+    //       do this...
+    fn post_process_command(&self, command: &str) -> String {
+        let mut final_command = command.to_string();
+
+        let session_params = self.get_session_params();
+        if session_params.is_none() {
+            // error.
+            eprintln!("Error: ActionProvider does not implement get_session_params()");
+            return "".to_string();
+        }
+        let session_params = session_params.unwrap();
+    
+        if session_params.user_type == UserType::Sudo {
+            final_command.insert_str(0, "sudo ");
+        }
+    
+        if session_params.hide_commands_from_history {
+            final_command.insert(0, ' ');
+        }
+    
+        return final_command;
     }
 
     fn generic_command(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {

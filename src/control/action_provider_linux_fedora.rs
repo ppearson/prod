@@ -17,26 +17,26 @@ use super::common_actions_linux;
 use super::common_actions_unix;
 
 use super::control_actions::{ActionProvider, ActionResult, ControlAction};
-use super::control_common::{ControlSession, ControlSessionParams};
+use super::control_common::{ControlSession, ControlSessionParams, UserType};
 
-pub struct AProviderLinuxDebian {
+pub struct AProviderLinuxFedora {
     // params which give us some hints as to context of session, i.e. username - sudo vs root, etc.
     session_params: ControlSessionParams,
 }
 
-impl AProviderLinuxDebian {
-    pub fn new(session_params: ControlSessionParams) -> AProviderLinuxDebian {
-        AProviderLinuxDebian { session_params }
+impl AProviderLinuxFedora {
+    pub fn new(session_params: ControlSessionParams) -> AProviderLinuxFedora {
+        AProviderLinuxFedora { session_params }
     }
 
     pub fn name() -> String {
-        return "linux_debian".to_string();
+        return "linux_fedora".to_string();
     }
 }
 
-impl ActionProvider for AProviderLinuxDebian {
+impl ActionProvider for AProviderLinuxFedora {
     fn name(&self) -> String {
-        return "linux_debian".to_string();
+        return "linux_fedora".to_string();
     }
 
     fn get_session_params(&self) -> Option<&ControlSessionParams> {
@@ -56,9 +56,6 @@ impl ActionProvider for AProviderLinuxDebian {
     }
 
     fn install_packages(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-        // use apt-get, because the commands for that will apparently be much more stable, compared to apt
-        // which might change as it's designed to be more user-facing...
-
         let packages_string;
         if let Some(package) = action.params.get_string_value("package") {
             // single package for convenience...
@@ -76,49 +73,16 @@ impl ActionProvider for AProviderLinuxDebian {
             return ActionResult::InvalidParams("The resulting 'packages' string list was empty.".to_string());
         }
 
-        // with some providers (Vultr), apt-get runs automatically just after the instance first starts,
-        // so we can't run apt-get manually, as the lock file is locked, so wait until apt-get has stopped running
-        // by default... 
-        let wait_for_apt_get_lockfile = action.params.get_value_as_bool("waitForPMToFinish", true);
-        if wait_for_apt_get_lockfile {
-            let mut try_count = 0;
-            while try_count < 20 {
-                connection.conn.send_command(&self.post_process_command("pidof apt-get"));
-
-                if !connection.conn.had_command_response() {
-                    // it's likely no longer running, so we can continue...
-                    break;
-                }
-
-                // TODO: only print this once eventually, but might be useful like this for the moment...
-                println!("Waiting for existing apt-get to finish before installing packages...");
-
-                // sleep a bit to give things a chance...
-                std::thread::sleep(std::time::Duration::from_secs(20));
-
-                try_count += 1;
-            }
-        }
-
-        // unattended-upgr
-
-        // TODO: might be worth polling for locks on /var/lib/dpkg/lock-frontend ?
-
         // by default, update the list of packages, as with some providers,
         // this needs to be done first, otherwise packages can't be found...
         let update_packages = action.params.get_value_as_bool("update", true);
         if update_packages {
-            let apt_get_command = "apt-get -y update".to_string();
-            connection.conn.send_command(&self.post_process_command(&apt_get_command));
+            let dnf_command = "dnf -y update".to_string();
+            connection.conn.send_command(&self.post_process_command(&dnf_command));
         }
 
-        // Note: first time around, unless we export this DEBIAN_FRONTEND env variable, we get a
-        //       debconf / dpkg-preconfigure issue with $TERM apparently being unset, and complaints
-        //       about the frontend not being useable. Interestingly, without setting the env variable,
-        //       trying again after the first failure works, and it's not time-dependent...
-
-        let apt_get_command = format!("export DEBIAN_FRONTEND=noninteractive; apt-get -y install {}", packages_string);
-        connection.conn.send_command(&self.post_process_command(&apt_get_command));
+        let dnf_command = format!("dnf -y install {}", packages_string);
+        connection.conn.send_command(&self.post_process_command(&dnf_command));
 
         if let Some(str) = connection.conn.get_previous_stderr_response() {
             println!("installPackages error: {}", str);
@@ -160,4 +124,3 @@ impl ActionProvider for AProviderLinuxDebian {
         return common_actions_linux::set_time_zone(self, connection, action);
     }
 }
-
