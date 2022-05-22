@@ -44,6 +44,9 @@ pub fn create_directory(action_provider: &dyn ActionProvider, connection: &mut C
         mkdir_command = format!("mkdir -p {}", path_to_create);
     }
     connection.conn.send_command(&action_provider.post_process_command(&mkdir_command));
+    if let Some(strerr) = connection.conn.get_previous_stderr_response() {
+        return ActionResult::Failed(format!("Failed to create directory: Err: {}", strerr));
+    }
 
     if let Some(permissions) = action.params.get_string_or_int_value_as_string("permissions") {
         let chmod_command = format!("chmod {} {}", permissions, path_to_create);
@@ -234,12 +237,18 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
         // TODO: something more robust than this...
         let mv_command = format!("cp {0} {0}.bak", filepath);
         connection.conn.send_command(&action_provider.post_process_command(&mv_command));
+        if let Some(strerr) = connection.conn.get_previous_stderr_response() {
+            return ActionResult::Failed(format!("Error making backup copy of remote file path: {}", strerr));
+        }
     }
 
     // Note: the Stat returned by scp_recv() is currently a private field, so we can only access bits of it,
     //       so we need to do a full stat call remotely to get the actual info
     let stat_command = format!("stat {}", filepath);
     connection.conn.send_command(&action_provider.post_process_command(&stat_command));
+    if let Some(strerr) = connection.conn.get_previous_stderr_response() {
+        return ActionResult::Failed(format!("Error accessing remote file path: {}", strerr));
+    }
 
     let stat_response = connection.conn.get_previous_stdout_response().to_string();
     // get the details from the stat call...
