@@ -46,8 +46,8 @@ Example Provision recipe file, which will create a $5 Vultr cloud instance in Sy
     # debian 11 x64
     os_id: 477
 
-To perform a provision, set the environment variable to control the private API key for the provider you want to use (Vultr in this example)
-- you will need to create your own for the respective provider:
+To perform a provision, set the environment variable to control the private API key for the provider you want to use (Vultr in this example) - you
+ will need to create your own for the respective provider:
 
     export PROD_VULTR_API_KEY=AN259_USE_YOUR_OWN_NYMK4HNKSFE5HEDEG3434T
 
