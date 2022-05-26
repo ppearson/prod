@@ -1,0 +1,10 @@
+# Create a Vultr $5 instance in Sydney running Debian 11 with IPv6 enabled
+provider: vultr
+action: createInstance
+
+plan: vc2-1c-1gb
+region: syd
+# debian 11 x64
+os_id: 477
+enable_ipv6: true
+

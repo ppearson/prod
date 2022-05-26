@@ -17,7 +17,7 @@ use super::common_actions_linux;
 use super::common_actions_unix;
 
 use super::control_actions::{ActionProvider, ActionResult, ControlAction};
-use super::control_common::{ControlSession, ControlSessionParams, UserType};
+use super::control_common::{ControlSession, ControlSessionParams};
 
 pub struct AProviderLinuxFedora {
     // params which give us some hints as to context of session, i.e. username - sudo vs root, etc.
@@ -92,6 +92,35 @@ impl ActionProvider for AProviderLinuxFedora {
         return ActionResult::Success;
     }
 
+    fn remove_packages(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        let packages_string;
+        if let Some(package) = action.params.get_string_value("package") {
+            // single package for convenience...
+            packages_string = package;
+        }
+        else if action.params.has_value("packages") {
+            let packages = action.params.get_values_as_vec_of_strings("packages");
+            packages_string = packages.join(" ");
+        }
+        else {
+            return ActionResult::InvalidParams("No 'package' string parameter or 'packages' string array parameter were specified.".to_string());
+        }
+
+        if packages_string.is_empty() {
+            return ActionResult::InvalidParams("The resulting 'packages' string list was empty.".to_string());
+        }
+
+        let dnf_command = format!("dnf -y remove {}", packages_string);
+        connection.conn.send_command(&self.post_process_command(&dnf_command));
+
+        if let Some(str) = connection.conn.get_previous_stderr_response() {
+            println!("removePackages error: {}", str);
+            return ActionResult::Failed(str.to_string());
+        }
+
+        return ActionResult::Success;
+    }
+
     fn systemctrl(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         return common_actions_linux::systemctrl(self, connection, action);
     }
@@ -114,6 +143,10 @@ impl ActionProvider for AProviderLinuxFedora {
 
     fn transmit_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         return common_actions_unix::transmit_file(self, connection, action);
+    }
+
+    fn receive_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        return common_actions_unix::receive_file(self, connection, action);
     }
 
     fn create_symlink(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {

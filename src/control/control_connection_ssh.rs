@@ -23,6 +23,8 @@ use std::io::prelude::*;
 
 use super::control_connection::{ControlConnection};
 
+const BUFFER_SIZE: usize = 16 * 1024;
+
 pub struct ControlConnectionSSH {
     pub session:        Session,
 
@@ -115,6 +117,7 @@ impl ControlConnectionSSH {
     }
 
     pub fn send_file_via_scp(&self, local_filepath: &str, dest_filepath: &str, mode: i32) -> Result<(), ()> {
+        // TODO: better error handling here and below...
         if !std::path::Path::new(local_filepath).exists() {
             return Err(());
         }
@@ -124,7 +127,6 @@ impl ControlConnectionSSH {
         let mut remote_file = self.session.scp_send(Path::new(dest_filepath), mode, file_size as u64, None).unwrap();
 
         let mut file = std::fs::File::open(local_filepath).unwrap();
-        const BUFFER_SIZE: usize = 16 * 1024;
         let mut buffer = Vec::with_capacity(BUFFER_SIZE);
         loop {
             let bytes_read = std::io::Read::by_ref(&mut file).take(BUFFER_SIZE as u64).read_to_end(&mut buffer).unwrap();
@@ -147,6 +149,57 @@ impl ControlConnectionSSH {
             }
             else {
                 eprintln!("Error writing file to SSH session...");
+                return Err(());
+            }
+        }
+
+        // Close the channel and wait for the whole content to be tranferred
+        remote_file.send_eof().unwrap();
+        remote_file.wait_eof().unwrap();
+        remote_file.close().unwrap();
+        remote_file.wait_close().unwrap();
+
+        return Ok(());
+    }
+
+    fn receive_file_via_scp(&self, remote_filepath: &str, local_filepath: &str) -> Result<(), ()> {
+        let recv_res = self.session.scp_recv(Path::new(&remote_filepath));
+        if let Err(err) = recv_res {
+            eprintln!("Error opening remote file: code: {}", err.code());
+            return Err(());
+        }
+        
+        let (mut remote_file, _stat) = recv_res.unwrap();
+
+        let local_file = std::fs::File::create(local_filepath);
+        if let Err(err) = local_file {
+            eprintln!("Error creating local file: {}", err.to_string());
+            return Err(());
+        }
+        let mut local_file = local_file.unwrap();
+
+        let mut buffer = Vec::with_capacity(BUFFER_SIZE);
+        loop {
+            let bytes_read = std::io::Read::by_ref(&mut remote_file).take(BUFFER_SIZE as u64).read_to_end(&mut buffer).unwrap();
+            if bytes_read == 0 {
+                break;
+            }
+
+            let bytes_written = local_file.write(&buffer);
+            if bytes_written.is_ok() {
+                let bytes_written = bytes_written.unwrap();
+                assert!(bytes_written == bytes_read);
+
+                if bytes_read < BUFFER_SIZE {
+                    break;
+                }
+                
+                // buffer is extended each time read_to_end() is called, so we need this.
+                // In theory, it should be very cheap, as it doesn't de-allocate the memory...
+                buffer.clear();
+            }
+            else {
+                eprintln!("Error reading file from SSH session...");
                 return Err(());
             }
         }
@@ -195,6 +248,10 @@ impl ControlConnection for ControlConnectionSSH {
 
     fn send_file(&self, local_filepath: &str, dest_filepath: &str, mode: i32) -> Result<(), ()> {
         return self.send_file_via_scp(local_filepath, dest_filepath, mode);
+    }
+
+    fn receive_file(&self, local_filepath: &str, dest_filepath: &str) -> Result<(), ()> {
+        return self.receive_file_via_scp(local_filepath, dest_filepath);
     }
 
 

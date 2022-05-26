@@ -225,6 +225,9 @@ impl ControlManager {
                 ControlActionType::InstallPackages => {
                     provider.install_packages(&mut connection, action)
                 },
+                ControlActionType::RemovePackages => {
+                    provider.remove_packages(&mut connection, action)
+                },
                 ControlActionType::SystemCtl => {
                     provider.systemctrl(&mut connection, action)
                 },
@@ -242,6 +245,9 @@ impl ControlManager {
                 },
                 ControlActionType::TransmitFile => {
                     provider.transmit_file(&mut connection, action)
+                },
+                ControlActionType::ReceiveFile => {
+                    provider.receive_file(&mut connection, action)
                 },
                 ControlActionType::CreateSymlink => {
                     provider.create_symlink(&mut connection, action)

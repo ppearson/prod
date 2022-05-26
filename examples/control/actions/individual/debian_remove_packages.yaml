@@ -1,0 +1,12 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - removePackages:
+    package: single_package
+    packages:
+      - package1
+      - package2
+
+

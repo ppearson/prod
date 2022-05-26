@@ -508,6 +508,30 @@ pub fn transmit_file(action_provider: &dyn ActionProvider, connection: &mut Cont
     return ActionResult::Success;
 }
 
+pub fn receive_file(_action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    // remote source path
+    // TODO: not sure about this naming...
+    let source_path = action.params.get_string_value("remoteSourcePath");
+    if source_path.is_none() {
+        return ActionResult::InvalidParams("The 'remoteSourcePath' parameter was not specified.".to_string());
+    }
+    let source_path = source_path.unwrap();
+
+    // local destination path
+    let dest_path = action.params.get_string_value("localDestPath");
+    if dest_path.is_none() {
+        return ActionResult::InvalidParams("The 'localDestPath' parameter was not specified.".to_string());
+    }
+    let dest_path = dest_path.unwrap();
+
+    let send_res = connection.conn.receive_file(&source_path, &dest_path);
+    if send_res.is_err() {
+        return ActionResult::Failed("".to_string());
+    }
+
+    return ActionResult::Success;
+}
+
 pub fn create_symlink(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
     let target_path = action.params.get_string_value("targetPath");
     if target_path.is_none() {

@@ -1,0 +1,9 @@
+---
+ provider: linux_debian
+ host: localhost
+ user: peter
+ actions:
+ - receiveFile:
+    remoteSourcePath: /home/peter/render1.png
+    localDestPath: /tmp/111.png
+

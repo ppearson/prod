@@ -37,12 +37,14 @@ pub enum ControlActionType {
     AddUser,
     CreateDirectory,
     InstallPackages,
+    RemovePackages,
     SystemCtl,
     Firewall,
     EditFile,
     CopyPath,
     DownloadFile,
     TransmitFile,
+    ReceiveFile,
     CreateSymlink,
     SetTimeZone,
 }
@@ -56,12 +58,14 @@ impl fmt::Display for ControlActionType {
             ControlActionType::AddUser          => write!(f, "addUser"),
             ControlActionType::CreateDirectory  => write!(f, "createDirectory"),
             ControlActionType::InstallPackages  => write!(f, "installPackages"),
+            ControlActionType::RemovePackages   => write!(f, "removePackages"),
             ControlActionType::SystemCtl        => write!(f, "systemCtl"),
             ControlActionType::Firewall         => write!(f, "firewall"),
             ControlActionType::EditFile         => write!(f, "editFile"),
             ControlActionType::CopyPath         => write!(f, "copyPath"),
             ControlActionType::DownloadFile     => write!(f, "downloadFile"),
             ControlActionType::TransmitFile     => write!(f, "transmitFile"),
+            ControlActionType::ReceiveFile      => write!(f, "receiveFile"),
             ControlActionType::CreateSymlink    => write!(f, "createSymlink"),
             ControlActionType::SetTimeZone      => write!(f, "setTimeZone"),
         }
@@ -142,7 +146,7 @@ impl ControlActions {
         let file = std::fs::File::open(path).unwrap();
         let _reader = BufReader::new(file);
 
-        // TODO: error handling...
+        // TODO: 
 
         let provision_params = ControlActions::new();
 
@@ -239,12 +243,14 @@ impl ControlActions {
             "addUser" =>            ControlActionType::AddUser,
             "createDirectory" =>    ControlActionType::CreateDirectory,
             "installPackages" =>    ControlActionType::InstallPackages,
+            "removePackages" =>     ControlActionType::RemovePackages,
             "systemCtl" =>          ControlActionType::SystemCtl,
             "firewall" =>           ControlActionType::Firewall,
             "editFile" =>           ControlActionType::EditFile,
             "copyPath" =>           ControlActionType::CopyPath,
             "downloadFile" =>       ControlActionType::DownloadFile,
             "transmitFile" =>       ControlActionType::TransmitFile,
+            "receiveFile" =>        ControlActionType::ReceiveFile,
             "createSymlink" =>      ControlActionType::CreateSymlink,
             "setTimeZone" =>        ControlActionType::SetTimeZone,
             _ =>                    ControlActionType::Unrecognised
@@ -427,6 +433,10 @@ pub trait ActionProvider {
         return ActionResult::NotImplemented;
     }
 
+    fn remove_packages(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
+        return ActionResult::NotImplemented;
+    }
+
     fn systemctrl(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
@@ -448,6 +458,10 @@ pub trait ActionProvider {
     }
 
     fn transmit_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
+        return ActionResult::NotImplemented;
+    }
+
+    fn receive_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 
