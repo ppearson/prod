@@ -126,7 +126,9 @@ impl ActionProvider for AProviderLinuxFedora {
     }
 
     fn firewall(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-        return common_actions_linux::firewall(self, connection, action);
+        // fedora apparently needs ufw firewall enabled first before adding rules, despite the
+        // man page saying it's supported, and it working on debian/ubuntu
+        return common_actions_linux::firewall(self, connection, action, true);
     }
 
     fn edit_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {

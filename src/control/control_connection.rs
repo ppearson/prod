@@ -32,6 +32,14 @@ pub trait ControlConnection {
         return None;
     }
 
+    fn get_exit_code(&self) -> Option<i32> {
+        return None;
+    }
+
+    fn did_exit_with_error_code(&self) -> bool {
+        return false;
+    }
+
     fn get_text_file_contents(&self, _filepath: &str) -> Result<String, ()> {
         return Err(());
     }

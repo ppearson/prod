@@ -387,6 +387,11 @@ pub fn copy_path(action_provider: &dyn ActionProvider, connection: &mut ControlS
     let cp_command = format!("cp {} {} {}", option_flags, source_path, dest_path);
     connection.conn.send_command(&action_provider.post_process_command(&cp_command));
 
+    if connection.conn.did_exit_with_error_code() {
+        return ActionResult::Failed(format!("Unexpected response from '{}' command: {}", cp_command,
+                connection.conn.get_previous_stderr_response().unwrap_or("")));
+    }
+
     return ActionResult::Success;
 }
 

@@ -13,9 +13,6 @@
  ---------
 */
 
-// REMOVE THIS!
-//#![allow(warnings)]
-
 use std::env;
 
 mod common;
@@ -40,11 +37,24 @@ enum MainType {
     Control
 }
 
+fn print_help() {
+    eprintln!("prod usage:");
+    eprintln!();
+    eprintln!("prod provision list <provider> <plans/regions/oss>         : list available provision items");
+    eprintln!("prod provision <provision_file>                            : run provision script");
+    eprintln!("prod provision deleteInstance <provider> <instance_id>     : delete instance");
+    
+    eprintln!();
+
+    eprintln!("prod control <control_script_file>     : Run control script file");
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 2 {
-        println!("Error: prod requires at least one command line arg file.");
+        eprintln!("Error: prod requires at least one command line arg file.");
+        print_help();
         return
     }
 
@@ -83,8 +93,13 @@ fn main() {
             return;
         }
     }
+    else if first_command.contains("help") {
+        print_help();
+        return;
+    }
 
     eprintln!("Error: Didn't understand command line args...");
+    print_help();
 }
 
 // return value indicates whether function handled input or not. If true it did,

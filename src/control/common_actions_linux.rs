@@ -51,11 +51,13 @@ pub fn add_user(action_provider: &dyn ActionProvider, connection: &mut ControlSe
     let change_password_command = format!(" echo -e '{}:{}' | chpasswd", user, password);
     connection.conn.send_command(&action_provider.post_process_command(&change_password_command));
 
+    let mut check_no_response = false;
     // now add user to any groups
     // see if there's just a single group...
     if action.params.has_value("group") {
         let usermod_command = format!("usermod -aG {} {}", action.params.get_string_value_with_default("group", ""), user);
         connection.conn.send_command(&action_provider.post_process_command(&usermod_command));
+        check_no_response = true;
     }
     else if action.params.has_value("groups") {
         // there's multiple
@@ -63,6 +65,14 @@ pub fn add_user(action_provider: &dyn ActionProvider, connection: &mut ControlSe
         for group in groups {
             let usermod_command = format!("usermod -aG {} {}", group, user);
             connection.conn.send_command(&action_provider.post_process_command(&usermod_command));
+        }
+        check_no_response = true;
+    }
+
+    if check_no_response {
+    // check response is nothing...
+        if connection.conn.had_command_response() {
+            return ActionResult::Failed(format!("Unexpected response from usermod command: {}", connection.conn.get_previous_stderr_response().unwrap_or("")));
         }
     }
 
@@ -82,30 +92,65 @@ pub fn systemctrl(action_provider: &dyn ActionProvider, connection: &mut Control
     
     connection.conn.send_command(&action_provider.post_process_command(&systemctrl_command));
 
+    if connection.conn.did_exit_with_error_code() {
+        return ActionResult::Failed(format!("Unexpected response from '{}' command: {}", systemctrl_command,
+                connection.conn.get_previous_stderr_response().unwrap_or("")));
+    }
+
     return ActionResult::Success;
 }
 
-pub fn firewall(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+pub fn firewall(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction, start_first: bool) -> ActionResult {
     let firewall_type = action.params.get_string_value_with_default("type", "ufw");
-    if firewall_type != "ufw" {
+    if firewall_type == "ufw" {
+        // incredibly basic for the moment...
+        // in theory we should probably be more type-specific, and 'schema'd', but given there
+        // are aliases for rules, it'd be quite complicated to handle that I think, so better
+        // for the moment to allow freeform strings...
+
+        // according to ufw's man, adding rules before ufw is enabled is supported (and works fine under debian/ubuntu),
+        // but fedora doesn't seem to like this first time around after install, and you seemingly need to enable ufw before
+        // it will accept any rules, hence the below conditional logic...
+        if start_first {
+            if action.params.has_value("enabled") {
+                let is_enabled = action.params.get_value_as_bool("enabled", true);
+                let ufw_command = format!("ufw --force {}", if is_enabled { "enable" } else { "disable"});
+                connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
+
+                if connection.conn.did_exit_with_error_code() {
+                    return ActionResult::Failed(format!("Unexpected response from '{}' command: {}", ufw_command,
+                         connection.conn.get_previous_stderr_response().unwrap_or("")));
+                }
+            }
+        }
+
+        let rules = action.params.get_values_as_vec_of_strings("rules");
+        for rule in rules {
+            let ufw_command = format!("ufw {}", rule);
+            connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
+
+            if connection.conn.did_exit_with_error_code() {
+                return ActionResult::Failed(format!("Unexpected response from '{}' command: {}", ufw_command,
+                        connection.conn.get_previous_stderr_response().unwrap_or("")));
+            }
+        }
+
+         if !start_first {
+            if action.params.has_value("enabled") {
+                let is_enabled = action.params.get_value_as_bool("enabled", true);
+                let ufw_command = format!("ufw --force {}", if is_enabled { "enable" } else { "disable"});
+                connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
+
+                if connection.conn.did_exit_with_error_code() {
+                    return ActionResult::Failed(format!("Unexpected response from '{}' command: {}", ufw_command,
+                            connection.conn.get_previous_stderr_response().unwrap_or("")));
+                }
+            }
+        }
+    }
+    else {
         // only support this type for the moment...
-        return ActionResult::InvalidParams("".to_string());
-    }
-
-    // incredibly basic for the moment...
-    // in theory we should probably be more type-specific, and 'schema'd', but given there
-    // are aliases for rules, it'd be quite complicated to handle that I think, so better
-    // for the moment to allow freeform strings...
-    let rules = action.params.get_values_as_vec_of_strings("rules");
-    for rule in rules {
-        let ufw_command = format!("ufw {}", rule);
-        connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
-    }
-
-    if action.params.has_value("enabled") {
-        let is_enabled = action.params.get_value_as_bool("enabled", true);
-        let ufw_command = format!("ufw --force {}", if is_enabled { "enable" } else { "disable"});
-        connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
+        return ActionResult::InvalidParams("Invalid firewall type param".to_string());
     }
 
     return ActionResult::Success;

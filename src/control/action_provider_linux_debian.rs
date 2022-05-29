@@ -189,7 +189,8 @@ impl ActionProvider for AProviderLinuxDebian {
     }
 
     fn firewall(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-        return common_actions_linux::firewall(self, connection, action);
+        // debian doesn't need ufw firewall enabled first before adding rules
+        return common_actions_linux::firewall(self, connection, action, false);
     }
 
     fn edit_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {

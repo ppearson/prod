@@ -1,0 +1,13 @@
+---
+ provider: linux_fedora
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - addUser:
+    username: test1
+    password: $PROMPT
+    createHome: true
+    shell: /bin/bash
+    groups:
+      - wheel
+

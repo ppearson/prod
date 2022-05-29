@@ -31,6 +31,8 @@ pub struct ControlConnectionSSH {
     pub prev_std_out:   String,
     pub prev_std_err:   String,
 
+    pub exit_code:      Option<i32>,
+
     shell_channel:      Option<Channel>,
     have_shell_session: bool,
 }
@@ -38,6 +40,7 @@ pub struct ControlConnectionSSH {
 impl ControlConnectionSSH {
     pub fn new(session: Session) -> ControlConnectionSSH {
         ControlConnectionSSH { session, prev_std_out: String::new(), prev_std_err: String::new(),
+                                 exit_code: None,
                                  shell_channel: None, have_shell_session: false }
     }
 
@@ -56,6 +59,15 @@ impl ControlConnectionSSH {
 
         self.prev_std_err = String::new();
         channel.stderr().read_to_string(&mut self.prev_std_err).unwrap();
+
+        channel.wait_close().unwrap();
+
+        if let Ok(code) = channel.exit_status() {
+            self.exit_code = Some(code);
+        }
+        else {
+            self.exit_code = None;
+        }
     }
 
     fn send_command_shell(&mut self, command: &str) {
@@ -238,6 +250,18 @@ impl ControlConnection for ControlConnectionSSH {
         return Some(&self.prev_std_err);
     }
 
+    fn get_exit_code(&self) -> Option<i32> {
+        return self.exit_code;
+    }
+
+    fn did_exit_with_error_code(&self) -> bool {
+        if let Some(ec) = self.exit_code {
+            return ec != 0;
+        }
+        
+        return false;
+    }
+
     fn get_text_file_contents(&self, filepath: &str) -> Result<String, ()> {
         return self.get_text_file_contents_via_scp(filepath);
     }
@@ -254,6 +278,4 @@ impl ControlConnection for ControlConnectionSSH {
         return self.receive_file_via_scp(local_filepath, dest_filepath);
     }
 
-
-    
 }
