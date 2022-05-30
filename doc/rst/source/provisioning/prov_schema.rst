@@ -123,6 +123,9 @@ Example recipe file:
     * - ``enable_ipv6``
       - Optional
       - Bool value indicating whether IPv6 should be enabled on the instance. Defaults to ``false``.
+    * - ``backups``
+      - Optional
+      - Bool value indicating whether backups should be enabled on the instance. Defaults to ``false``.
 
 Example recipe file:
 
