@@ -55,6 +55,10 @@ impl ActionProvider for AProviderLinuxFedora {
         return common_actions_unix::create_directory(self, connection, action);
     }
 
+    fn remove_directory(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        return common_actions_unix::remove_directory(self, connection, action);
+    }
+
     fn install_packages(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         let packages_string;
         if let Some(package) = action.params.get_string_value("package") {
@@ -137,6 +141,10 @@ impl ActionProvider for AProviderLinuxFedora {
 
     fn copy_path(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         return common_actions_unix::copy_path(self, connection, action);
+    }
+
+    fn remove_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        return common_actions_unix::remove_file(self, connection, action);
     }
 
     fn download_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {

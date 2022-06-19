@@ -36,12 +36,14 @@ pub enum ControlActionType {
     GenericCommand,
     AddUser,
     CreateDirectory,
+    RemoveDirectory,
     InstallPackages,
     RemovePackages,
     SystemCtl,
     Firewall,
     EditFile,
     CopyPath,
+    RemoveFile,
     DownloadFile,
     TransmitFile,
     ReceiveFile,
@@ -57,12 +59,14 @@ impl fmt::Display for ControlActionType {
             ControlActionType::GenericCommand   => write!(f, "genericCommand"),
             ControlActionType::AddUser          => write!(f, "addUser"),
             ControlActionType::CreateDirectory  => write!(f, "createDirectory"),
+            ControlActionType::RemoveDirectory  => write!(f, "removeDirectory"),
             ControlActionType::InstallPackages  => write!(f, "installPackages"),
             ControlActionType::RemovePackages   => write!(f, "removePackages"),
             ControlActionType::SystemCtl        => write!(f, "systemCtl"),
             ControlActionType::Firewall         => write!(f, "firewall"),
             ControlActionType::EditFile         => write!(f, "editFile"),
             ControlActionType::CopyPath         => write!(f, "copyPath"),
+            ControlActionType::RemoveFile       => write!(f, "removeFile"),
             ControlActionType::DownloadFile     => write!(f, "downloadFile"),
             ControlActionType::TransmitFile     => write!(f, "transmitFile"),
             ControlActionType::ReceiveFile      => write!(f, "receiveFile"),
@@ -242,12 +246,14 @@ impl ControlActions {
             "genericCommand" =>     ControlActionType::GenericCommand,
             "addUser" =>            ControlActionType::AddUser,
             "createDirectory" =>    ControlActionType::CreateDirectory,
+            "removeDirectory" =>    ControlActionType::RemoveDirectory,
             "installPackages" =>    ControlActionType::InstallPackages,
             "removePackages" =>     ControlActionType::RemovePackages,
             "systemCtl" =>          ControlActionType::SystemCtl,
             "firewall" =>           ControlActionType::Firewall,
             "editFile" =>           ControlActionType::EditFile,
             "copyPath" =>           ControlActionType::CopyPath,
+            "removeFile" =>         ControlActionType::RemoveFile,
             "downloadFile" =>       ControlActionType::DownloadFile,
             "transmitFile" =>       ControlActionType::TransmitFile,
             "receiveFile" =>        ControlActionType::ReceiveFile,
@@ -429,6 +435,10 @@ pub trait ActionProvider {
         return ActionResult::NotImplemented;
     }
 
+    fn remove_directory(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
+        return ActionResult::NotImplemented;
+    }
+
     fn install_packages(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
@@ -450,6 +460,10 @@ pub trait ActionProvider {
     }
 
     fn copy_path(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
+        return ActionResult::NotImplemented;
+    }
+
+    fn remove_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 

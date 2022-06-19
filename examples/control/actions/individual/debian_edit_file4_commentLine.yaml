@@ -1,0 +1,17 @@
+---
+ provider: linux_debian
+ host: localhost
+ user: $PROMPT
+ actions:
+ - editFile:
+    backup: true
+    filepath: "/home/peter/fstab1.txt"
+    commentLine:
+      matchString: '/swapfile'
+      commentChar: '#'
+      matchType: contains
+      reportFailure: false
+
+
+
+

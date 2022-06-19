@@ -15,6 +15,7 @@
 
 pub mod common_actions_linux;
 pub mod common_actions_unix;
+mod common_actions_unix_edit_file;
 
 pub mod action_provider_linux_debian;
 pub mod action_provider_linux_fedora;

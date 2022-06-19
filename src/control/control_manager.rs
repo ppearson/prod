@@ -222,6 +222,9 @@ impl ControlManager {
                 ControlActionType::CreateDirectory => {
                     provider.create_directory(&mut connection, action)
                 },
+                ControlActionType::RemoveDirectory => {
+                    provider.remove_directory(&mut connection, action)
+                },
                 ControlActionType::InstallPackages => {
                     provider.install_packages(&mut connection, action)
                 },
@@ -239,6 +242,9 @@ impl ControlManager {
                 },
                 ControlActionType::CopyPath => {
                     provider.copy_path(&mut connection, action)
+                },
+                ControlActionType::RemoveFile => {
+                    provider.remove_file(&mut connection, action)
                 },
                 ControlActionType::DownloadFile => {
                     provider.download_file(&mut connection, action)

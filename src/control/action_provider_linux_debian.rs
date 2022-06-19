@@ -55,6 +55,10 @@ impl ActionProvider for AProviderLinuxDebian {
         return common_actions_unix::create_directory(self, connection, action);
     }
 
+    fn remove_directory(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        return common_actions_unix::remove_directory(self, connection, action);
+    }
+
     fn install_packages(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         // use apt-get, because the commands for that will apparently be much more stable, compared to apt
         // which might change as it's designed to be more user-facing...
@@ -199,6 +203,10 @@ impl ActionProvider for AProviderLinuxDebian {
 
     fn copy_path(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         return common_actions_unix::copy_path(self, connection, action);
+    }
+
+    fn remove_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        return common_actions_unix::remove_file(self, connection, action);
     }
 
     fn download_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
