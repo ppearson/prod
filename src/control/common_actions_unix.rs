@@ -90,10 +90,11 @@ pub fn remove_directory(action_provider: &dyn ActionProvider, connection: &mut C
     let recursive = action.params.get_value_as_bool("recursive", true);
     let rmdir_command;
     if !recursive {
+        // TODO: Not really clear if this is worth it...
         rmdir_command = format!("rmdir {}", path_to_remove);
     }
     else {
-        rmdir_command = format!("rmdir -rf {}", path_to_remove);
+        rmdir_command = format!("rm -rf {}", path_to_remove);
     }
 
     let ignore_failure = action.params.get_value_as_bool("ignoreFailure", false);
