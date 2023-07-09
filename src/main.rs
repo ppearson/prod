@@ -24,7 +24,7 @@ mod provision;
 
 mod column_list_printer;
 
-use control::control_manager::{ControlManager, CommandResult};
+use control::control_manager::{ControlManager, CommandResult, ControlGeneralParams};
 use control::control_actions::{ControlActions};
 
 use provision::provision_common::{ProvisionActionType};
@@ -46,7 +46,7 @@ fn print_help() {
     
     eprintln!();
 
-    eprintln!("prod control <control_script_file>     : Run control script file");
+    eprintln!("prod control [-retry] <control_script_file>     : Run control script file");
 }
 
 fn main() {
@@ -168,41 +168,94 @@ pub fn handle_provision_command(args: &Vec<String>) -> bool {
 // return value indicates whether function handled input or not. If true it did,
 // if false, it fell through...
 pub fn handle_control_command(args: &Vec<String>) -> bool {
-    let next_arg = &args[2];
-    let host = next_arg;
-
     let control_manager = ControlManager::new();
 
-    if next_arg.contains('.') && args.len() == 3 {
-        // likely a control/action file
-        // TODO: error handling!
-        let control_actions = ControlActions::from_file(next_arg).unwrap();
+    let mut general_params = ControlGeneralParams::new();
 
-        control_manager.perform_actions(&control_actions);
-
-        return true;
+    enum ControlType {
+        Unknown,
+        ManualCommand(String, String), // hostname, command
+        ActionsScript(String),
     }
-    else if args.len() >= 4 {
-        // next arg is command to run remotely...
-        let command_str = &args[3];
- 
-        let res = control_manager.run_command(host, command_str);
-        match res {
-            CommandResult::ErrorCantConnect(err) => {
-                eprintln!("Error: can't connect to host: {}, {}...", host, err);
-            },
-            CommandResult::ErrorAuthenticationIssue(err) => {
-                eprintln!("Error: can't authenticate with host: {}, {}...", host, err);
-            },
-            CommandResult::Failed(err) => {
-                eprintln!("Error: failed to run remote command: {}...", err);
-            },
-            CommandResult::CommandRunOkay(result) => {
-                println!("Command executed okay. Response:\n{}\n", result);
+
+    let mut run_kind = ControlType::Unknown;
+
+    let mut arg_iter = args.iter().skip(2).enumerate().peekable();
+    while let Some((_idx, arg)) = arg_iter.next() {
+        if arg == "--command" {
+            // we want to run a manual command on the specified host...
+
+            // check the next arg exists and is (hopefully) a hostname...
+            if let Some(hostname) = arg_iter.next() {
+                // then next arg should be the single (quoted) command to run
+                if let Some(command_str) = arg_iter.next() {
+                    run_kind = ControlType::ManualCommand(hostname.1.to_string(), command_str.1.to_string());
+                    break;
+                }
+                else {
+                    // error out...
+
+                    break;
+                }
+            }
+            else {
+                eprintln!("Error: expected a hostname arg after the '--command' arg.");
+                return false;
             }
         }
-      
-        return true;
+        else if let Some(flag_string) = arg.strip_prefix('-') {
+            match flag_string {
+                "retry"    => {
+                    general_params.retry = true;
+                },
+                _  => {
+                    eprintln!("Warning: unrecognised command flag: {}", arg);
+                }
+            }
+        }
+        else {
+            // it's a full string arg, so hopefully control/action script file to open and perform...
+
+            let filename = arg;
+
+            run_kind = ControlType::ActionsScript(filename.to_string());
+        }
+    }
+
+    match run_kind {
+        ControlType::ManualCommand(hostname, command_str) => {
+            // run the single manual command on the host requested...
+
+            let res = control_manager.run_command(&hostname, &command_str);
+            match res {
+                CommandResult::ErrorCantConnect(err) => {
+                    eprintln!("Error: can't connect to host: {}, {}...", hostname, err);
+                },
+                CommandResult::ErrorAuthenticationIssue(err) => {
+                    eprintln!("Error: can't authenticate with host: {}, {}...", hostname, err);
+                },
+                CommandResult::Failed(err) => {
+                    eprintln!("Error: failed to run remote command: {}...", err);
+                },
+                CommandResult::CommandRunOkay(result) => {
+                    println!("Command executed okay. Response:\n{}\n", result);
+                }
+            }
+        },
+        ControlType::ActionsScript(script_file) => {
+            // run the actual script...
+
+            // TODO: error handling...
+            let control_actions = ControlActions::from_file(&script_file).unwrap();
+
+            control_manager.perform_actions(&control_actions, general_params);
+
+            return true;
+        },
+        _   => {
+            eprintln!("Error running control command, invalid type status.");
+            return false;
+        }
     }
 
     return false;

@@ -27,7 +27,16 @@ use super::action_provider_linux_debian;
 use super::action_provider_linux_fedora;
 
 pub struct ControlManager {
-    
+}
+
+pub struct ControlGeneralParams {
+    pub retry:      bool,
+}
+
+impl ControlGeneralParams {
+    pub fn new() -> ControlGeneralParams {
+        ControlGeneralParams { retry: false }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -88,7 +97,7 @@ impl ControlManager {
         return CommandResult::CommandRunOkay(connection.conn.get_previous_stdout_response().to_string());
     }
 
-    pub fn perform_actions(&self, actions: &ControlActions) {
+    pub fn perform_actions(&self, actions: &ControlActions, general_params: ControlGeneralParams) {
         if actions.actions.is_empty() {
             eprintln!("Error: no actions specified.");
         }
@@ -179,22 +188,51 @@ impl ControlManager {
             }
         }
 
-        // Now configure ControlSessionParams properly here...
-        // TODO: as above, not really happy with this, but there's various "not great" ways of solving the issue
-        //       I don't like, so I'm happier (just) with this for the moment...
-        session_params = ControlSessionParams::new(&host_target, auth, true);
+        let mut connection;
+        // always loop for retry logic, but we break out normally...
+        let mut retry_count = 0;
+        loop {
+            eprintln!("Connecting to {}...", host_target);
+
+            // Now configure ControlSessionParams properly here...
+            // TODO: as above, not really happy with this, but there's various "not great" ways of solving the issue
+            //       I don't like, so I'm happier (just) with this for the moment...
+            session_params = ControlSessionParams::new(&host_target, auth.clone(), true);
 
 #[cfg(feature = "ssh")]
-        let connection = ControlSession::new_ssh(session_params);
+            let inner_connection = ControlSession::new_ssh(session_params);
 
 #[cfg(not(feature = "ssh"))]
-        let connection = ControlSession::new_dummy_debug(session_params);
+            let inner_connection = ControlSession::new_dummy_debug(session_params);
 
-        if connection.is_none() {
-            eprintln!("Error connecting to hostname...");
-            return;
+            if let Some(connection_result) = inner_connection {
+                // we were successful, so save the result, and break out of the retry loop.
+                connection = connection_result;
+                break;
+            }
+
+            // otherwise, we had an error, so retry if requested...
+            if general_params.retry {
+                // we want to retry automatically after a pause...
+                if retry_count <= 10 {
+                    eprintln!("Connection failed... will retry in 30 secs...");
+                    retry_count += 1;
+                }
+                else {
+                    eprintln!("Connection failed after: {} retry attempts, will abort.", retry_count);
+                    return
+                }
+                std::thread::sleep(std::time::Duration::from_secs(30));
+                eprintln!("Retrying connection...");
+            }
+            else {
+                // we don't want to retry, just error...
+                eprintln!("Error connecting to hostname...");
+                return;
+            }
         }
-        let mut connection = connection.unwrap();
+
+        eprintln!("Connected successfully.");
 
 /*
         let closure = || provider.add_user(&mut connection, &actions.actions[0]);
