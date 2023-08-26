@@ -80,10 +80,11 @@ impl ControlManager {
 
         let session_params = ControlSessionParams::new(&host_target, control_session_user_auth, true);
 
-#[cfg(feature = "ssh")]
-        let connection = ControlSession::new_ssh(session_params);
-
-#[cfg(not(feature = "ssh"))]
+#[cfg(feature = "openssh")]
+        let connection = ControlSession::new_openssh(session_params);
+#[cfg(feature = "sshrs")]
+        let connection = ControlSession::new_sshrs(session_params);
+#[cfg(not(any(feature = "openssh", feature = "sshrs")))]
         let connection = ControlSession::new_dummy_debug(session_params);
 
         if connection.is_none() {
@@ -199,10 +200,11 @@ impl ControlManager {
             //       I don't like, so I'm happier (just) with this for the moment...
             session_params = ControlSessionParams::new(&host_target, auth.clone(), true);
 
-#[cfg(feature = "ssh")]
-            let inner_connection = ControlSession::new_ssh(session_params);
-
-#[cfg(not(feature = "ssh"))]
+#[cfg(feature = "openssh")]
+            let inner_connection = ControlSession::new_openssh(session_params);
+#[cfg(feature = "sshrs")]
+            let inner_connection = ControlSession::new_sshrs(session_params);
+#[cfg(not(any(feature = "openssh", feature = "sshrs")))]
             let inner_connection = ControlSession::new_dummy_debug(session_params);
 
             if let Some(connection_result) = inner_connection {

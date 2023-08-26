@@ -12,11 +12,15 @@ yaml-rust = "0.4"
 serde = { version = "1.0.*", features = ["derive"] }
 serde_json = "1.0.*"
 ssh2 = { version = "0.9", optional = true }
+ssh-rs = { version = "0.3.2", optional = true }
+temp-file = { version = "0.1.7", optional = true }
 rpassword = "5.0"
 
 [features]
-default = ["ssh"]
+#default = ["openssh"]
+default = ["sshrs"]
 #default = []
 provision = []
 control = []
-ssh = ["ssh2"]
+openssh = ["ssh2"]
+sshrs = ["ssh-rs", "temp-file"]

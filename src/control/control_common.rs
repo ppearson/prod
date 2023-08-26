@@ -16,13 +16,18 @@
 
 use super::control_connection::{ControlConnection, ControlConnectionDummyDebug};
 
-#[cfg(feature = "ssh")]
-use super::control_connection_ssh::{ControlConnectionSSH};
+#[cfg(feature = "openssh")]
+use super::control_connection_ssh::ControlConnectionOpenSSH;
 
-#[cfg(feature = "ssh")]
+#[cfg(feature = "openssh")]
 use ssh2::Session;
-#[cfg(feature = "ssh")]
+#[cfg(feature = "openssh")]
 use std::net::TcpStream;
+
+#[cfg(feature = "sshrs")]
+use super::control_connection_sshrs::ControlConnectionSshRs;
+#[cfg(feature = "sshrs")]
+use ssh_rs::ssh;
 
 // pub use internal::*;
 
@@ -96,8 +101,8 @@ pub struct ControlSession {
 
 impl ControlSession {
 
-    #[cfg(feature = "ssh")]
-    pub fn new_ssh(control_session_params: ControlSessionParams) -> Option<ControlSession> {
+    #[cfg(feature = "openssh")]
+    pub fn new_openssh(control_session_params: ControlSessionParams) -> Option<ControlSession> {
         let ssh_host_target = format!("{}:{}", control_session_params.host_target, 22);
         let tcp_connection = TcpStream::connect(&ssh_host_target);
         if tcp_connection.is_err() {
@@ -128,7 +133,35 @@ impl ControlSession {
             }
         }
 
-        let ssh_connection = ControlConnectionSSH::new(sess);
+        let ssh_connection = ControlConnectionOpenSSH::new(sess);
+        Some(ControlSession { conn: Box::new(ssh_connection), params: control_session_params })
+    }
+
+    #[cfg(feature = "sshrs")]
+    pub fn new_sshrs(control_session_params: ControlSessionParams) -> Option<ControlSession> {
+        let sess_builder;
+        
+        if let ControlSessionUserAuth::UserPass(user_pass) = &control_session_params.user_auth {
+            sess_builder = ssh::create_session().username(&user_pass.username)
+                .password(&user_pass.password);
+        }
+        else if let ControlSessionUserAuth::PublicKey(pub_key) = &control_session_params.user_auth {
+            sess_builder = ssh::create_session().username(&pub_key.username)
+                .private_key_path(&pub_key.privatekey_path);
+        }
+        else {
+            return None;
+        }
+
+        let session = sess_builder.connect(&control_session_params.host_target);
+        if let Err(err) = session {
+            eprintln!("Error connecting to host: {}", err.to_string());
+            return None;
+        }
+
+        let session = session.unwrap();
+
+        let ssh_connection = ControlConnectionSshRs::new(session);
         Some(ControlSession { conn: Box::new(ssh_connection), params: control_session_params })
     }
 

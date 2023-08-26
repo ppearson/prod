@@ -24,8 +24,11 @@ pub mod control_actions;
 pub mod control_common;
 pub mod control_connection;
 
-#[cfg(feature = "ssh")]
-pub mod control_connection_ssh;
+#[cfg(feature = "openssh")]
+pub mod control_connection_openssh;
+
+#[cfg(feature = "sshrs")]
+pub mod control_connection_sshrs;
 
 pub mod control_manager;
 

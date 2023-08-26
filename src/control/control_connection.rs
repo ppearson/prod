@@ -40,11 +40,11 @@ pub trait ControlConnection {
         return false;
     }
 
-    fn get_text_file_contents(&self, _filepath: &str) -> Result<String, ()> {
+    fn get_text_file_contents(&mut self, _filepath: &str) -> Result<String, ()> {
         return Err(());
     }
 
-    fn send_text_file_contents(&self, _filepath: &str, _mode: i32, _contents: &str) -> Result<(), ()> {
+    fn send_text_file_contents(&mut self, _filepath: &str, _mode: i32, _contents: &str) -> Result<(), ()> {
         return Err(());
     }
 
@@ -81,11 +81,11 @@ impl ControlConnection for ControlConnectionDummyDebug {
         return "";
     }
 
-    fn get_text_file_contents(&self, _filepath: &str) -> Result<String, ()> {
+    fn get_text_file_contents(&mut self, _filepath: &str) -> Result<String, ()> {
         return Err(());
     }
 
-    fn send_text_file_contents(&self, _filepath: &str, _mode: i32, _contents: &str) -> Result<(), ()> {
+    fn send_text_file_contents(&mut self, _filepath: &str, _mode: i32, _contents: &str) -> Result<(), ()> {
         return Err(());
     }
 }

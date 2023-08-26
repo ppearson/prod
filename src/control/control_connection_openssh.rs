@@ -25,7 +25,7 @@ use super::control_connection::{ControlConnection};
 
 const BUFFER_SIZE: usize = 16 * 1024;
 
-pub struct ControlConnectionSSH {
+pub struct ControlConnectionOpenSSH {
     pub session:        Session,
 
     pub prev_std_out:   String,
@@ -37,9 +37,9 @@ pub struct ControlConnectionSSH {
     have_shell_session: bool,
 }
 
-impl ControlConnectionSSH {
-    pub fn new(session: Session) -> ControlConnectionSSH {
-        ControlConnectionSSH { session, prev_std_out: String::new(), prev_std_err: String::new(),
+impl ControlConnectionOpenSSH {
+    pub fn new(session: Session) -> ControlConnectionOpenSSH {
+        ControlConnectionOpenSSH { session, prev_std_out: String::new(), prev_std_err: String::new(),
                                  exit_code: None,
                                  shell_channel: None, have_shell_session: false }
     }
@@ -226,7 +226,7 @@ impl ControlConnectionSSH {
     }
 }
 
-impl ControlConnection for ControlConnectionSSH {
+impl ControlConnection for ControlConnectionOpenSSH {
 
     fn send_command(&mut self, command: &str) {
 //        self.debug(command);
@@ -262,11 +262,11 @@ impl ControlConnection for ControlConnectionSSH {
         return false;
     }
 
-    fn get_text_file_contents(&self, filepath: &str) -> Result<String, ()> {
+    fn get_text_file_contents(&mut self, filepath: &str) -> Result<String, ()> {
         return self.get_text_file_contents_via_scp(filepath);
     }
 
-    fn send_text_file_contents(&self, filepath: &str, mode: i32, contents: &str) -> Result<(), ()> {
+    fn send_text_file_contents(&mut self, filepath: &str, mode: i32, contents: &str) -> Result<(), ()> {
         return self.send_text_file_contents_via_scp(filepath, mode, contents);
     }
 
