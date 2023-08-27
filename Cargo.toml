@@ -17,8 +17,8 @@ temp-file = { version = "0.1.7", optional = true }
 rpassword = "5.0"
 
 [features]
-#default = ["openssh"]
-default = ["sshrs"]
+default = ["openssh"]
+#default = ["sshrs"]
 #default = []
 provision = []
 control = []

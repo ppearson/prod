@@ -17,7 +17,7 @@
 use super::control_connection::{ControlConnection, ControlConnectionDummyDebug};
 
 #[cfg(feature = "openssh")]
-use super::control_connection_ssh::ControlConnectionOpenSSH;
+use super::control_connection_openssh::ControlConnectionOpenSSH;
 
 #[cfg(feature = "openssh")]
 use ssh2::Session;
