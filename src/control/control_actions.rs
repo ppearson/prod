@@ -99,6 +99,7 @@ pub enum ActionResult {
 pub struct ControlActions {
     pub provider:   String,
     pub host:       String,
+    pub port:       Option<u32>,
 
     pub auth:       ControlSessionUserAuth,
 
@@ -124,7 +125,9 @@ impl fmt::Display for ControlActions {
 
 impl ControlActions {
     pub fn new() -> ControlActions {
-        ControlActions { provider: String::new(), host: String::new(),
+        ControlActions { provider: String::new(),
+                         host: String::new(),
+                         port: None,
                          auth: ControlSessionUserAuth::UserPass(UserAuthUserPass::new("", "")),
                          actions: Vec::with_capacity(0)}
     }
@@ -192,6 +195,9 @@ impl ControlActions {
                                     "host" => {
                                         control_actions.host = value.as_str().unwrap().to_string();
                                     },
+                                    "port" => {
+                                        control_actions.port = Some(value.as_str().unwrap().parse::<u32>().unwrap());
+                                    }
                                     "actions" => {
                                         control_actions.ingest_control_actions_yaml_items(&value);
                                     },

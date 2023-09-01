@@ -48,11 +48,11 @@ pub trait ControlConnection {
         return Err(());
     }
 
-    fn send_file(&self, _local_filepath: &str, _dest_filepath: &str, _mode: i32) -> Result<(), ()> {
+    fn send_file(&mut self, _local_filepath: &str, _dest_filepath: &str, _mode: i32) -> Result<(), ()> {
         return Err(());
     }
 
-    fn receive_file(&self, _remote_filepath: &str, _local_filepath: &str) -> Result<(), ()> {
+    fn receive_file(&mut self, _remote_filepath: &str, _local_filepath: &str) -> Result<(), ()> {
         return Err(());
     }
 }

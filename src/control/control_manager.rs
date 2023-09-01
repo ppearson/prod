@@ -69,7 +69,7 @@ impl ControlManager {
     pub fn run_command(&self, host: &str, command: &str) -> CommandResult {
         println!("Connecting to host: {}...", host);
 
-        let host_target = format!("{}:22", host);
+        let target_host = host.to_string();
 
         println!("Enter password:");
         let password = read_password().unwrap();
@@ -78,7 +78,7 @@ impl ControlManager {
 
         let control_session_user_auth = ControlSessionUserAuth::UserPass(UserAuthUserPass::new(&username, &password));
 
-        let session_params = ControlSessionParams::new(&host_target, control_session_user_auth, true);
+        let session_params = ControlSessionParams::new(&target_host, 22, control_session_user_auth, true);
 
 #[cfg(feature = "openssh")]
         let connection = ControlSession::new_openssh(session_params);
@@ -105,7 +105,9 @@ impl ControlManager {
 
         // TODO: come up with a better way of handling this partial initialisation / ordering dilema to work
         //       out if a provider exists before querying for usernames and passwords...
-        let mut session_params = ControlSessionParams::new("", actions.auth.clone(), true);
+        let mut session_params = ControlSessionParams::new("",
+                                                           22,
+                                                           actions.auth.clone(), true);
 
         // temp creation to check it exists as a provider name...
         let provider = self.create_provider(&actions.provider, session_params);
@@ -120,19 +122,38 @@ impl ControlManager {
 //        let mut asked_for_username = false;
 
         let mut hostname = String::new();
+        let mut port: Option<u32> = None;
         if actions.host.is_empty() || actions.host == "$PROMPT" {
             eprintln!("Please enter hostname to connect to:");
             std::io::stdin().read_line(&mut hostname).expect("Error reading hostname from std input");
             hostname = hostname.trim().to_string();
 
+            if let Some(split_pair) = hostname.split_once(':') {
+                // we have a hostname and a port number...
+                // use temp variable to cache value to prevent modifying backing string...
+                let tmp_hostname = split_pair.0.to_string();
+                
+                let parsed_port = split_pair.1.parse::<u32>();
+                if let Err(_err) = parsed_port {
+                    eprintln!("Error parsing suffix port number after hostname: {}", split_pair.1);
+                }
+                else {
+                    port = Some(parsed_port.unwrap());
+                }
+
+                hostname = tmp_hostname;
+            }
+
             asked_for_hostname = true;
         }
         else {
             hostname = actions.host.clone();
+            port = actions.port;
         }
 
         // connect to host
-        let host_target = hostname;
+        let target_host = hostname;
+        let target_port = port;
 
         // we take a local copy, so we can modify it and pass it in to be used in a final state...
         let mut auth = actions.auth.clone();
@@ -165,7 +186,7 @@ impl ControlManager {
             // TODO: do we want to maybe allow empty passwords?
             if userpass.password.is_empty() || userpass.password == "$PROMPT" {
                 if !asked_for_hostname {
-                    eprintln!("Enter password for user '{}' on host '{}':", &username, &host_target);
+                    eprintln!("Enter password for user '{}' on host '{}':", &username, &target_host);
                 }
                 else {
                     eprintln!("Enter password:");
@@ -180,7 +201,7 @@ impl ControlManager {
             // explicitly allow empty passphrases for now...
             if publickey.passphrase == "$PROMPT" {
                 if !asked_for_hostname {
-                    eprintln!("Enter key passphrase for user '{}' on host '{}':", &username, &host_target);
+                    eprintln!("Enter key passphrase for user '{}' on host '{}':", &username, &target_host);
                 }
                 else {
                     eprintln!("Enter key passphrase:");
@@ -190,15 +211,19 @@ impl ControlManager {
         }
 
         let mut connection;
-        // always loop for retry logic, but we break out normally...
+        // always loop for retry logic, but we break out normally on success...
+        const RETRY_LIMIT: usize = 15;
         let mut retry_count = 0;
+
+        let port_number = target_port.unwrap_or(22);
+
         loop {
-            eprintln!("Connecting to {}...", host_target);
+            eprintln!("Connecting to {}:{}...", target_host, port_number);
 
             // Now configure ControlSessionParams properly here...
             // TODO: as above, not really happy with this, but there's various "not great" ways of solving the issue
-            //       I don't like, so I'm happier (just) with this for the moment...
-            session_params = ControlSessionParams::new(&host_target, auth.clone(), true);
+            //       I don't like, so I'm happier (only just) with this for the moment...
+            session_params = ControlSessionParams::new(&target_host, port_number, auth.clone(), true);
 
 #[cfg(feature = "openssh")]
             let inner_connection = ControlSession::new_openssh(session_params);
@@ -216,7 +241,9 @@ impl ControlManager {
             // otherwise, we had an error, so retry if requested...
             if general_params.retry {
                 // we want to retry automatically after a pause...
-                if retry_count <= 10 {
+                // TODO: only if it was a connection failure!!
+                //       we probably don't want to keep retrying if it was an auth failure (account lockout!)
+                if retry_count <= RETRY_LIMIT {
                     eprintln!("Connection failed... will retry in 30 secs...");
                     retry_count += 1;
                 }
@@ -229,12 +256,15 @@ impl ControlManager {
             }
             else {
                 // we don't want to retry, just error...
-                eprintln!("Error connecting to hostname...");
+                // TODO: sprinkling this 22 default everywhere isn't great... maybe make it non-optional
+                //       in the params struct so it's just default constructed with 22, and overridden
+                //       if necessary?
+                eprintln!("Error connecting to: {}:{}...", target_host, target_port.unwrap_or(22));
                 return;
             }
         }
 
-        eprintln!("Connected successfully.");
+        eprintln!("Connected successfully...");
 
 /*
         let closure = || provider.add_user(&mut connection, &actions.actions[0]);

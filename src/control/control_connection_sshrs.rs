@@ -17,6 +17,7 @@
 use ssh_rs::ssh;
 use ssh_rs::{LocalSession, SessionConnector};
 
+use std::fs::File;
 use std::path::Path;
 
 use std::io::{BufReader};
@@ -87,32 +88,74 @@ impl ControlConnectionSshRs {
         if let Err(err) = res {
             return Err(());
         }
-        // TODO: read file contents...
-        return Err(());
+
+        let file_handle = std::fs::File::open(local_temp_file_path);
+        if let Ok(mut file) = file_handle {
+            let mut file_contents = String::new();
+
+            let read_from_string_res = file.read_to_string(&mut file_contents);
+            if let Err(err) = read_from_string_res {
+                return Err(());
+            }
+            
+            return Ok(file_contents);
+        }
+        else {
+            return Err(());
+        }
     }
 
     pub fn send_text_file_contents_via_scp(&mut self, filepath: &str, mode: i32, contents: &str) -> Result<(), ()> {
-  
-        return Err(());
+        let scp = self.local_session.open_scp();
+        if let Err(err) = scp {
+            // TODO:
+            return Err(());
+        }
+        let scp = scp.unwrap();
+
+        // write the text file contents to a temporary file
+        let tmp_local_file = temp_file::empty();
+        let local_temp_file_path = tmp_local_file.path();
+        let local_file = File::create(&local_temp_file_path);
+        if local_file.is_err() {
+            eprintln!("Error creating temporary file to scp text contents to remote: {}", local_temp_file_path.display());
+            return Err(());
+        }
+        let mut local_file = local_file.unwrap();
+        local_file.write_all(contents.as_bytes()).unwrap();
+
+        // TODO: not sure what to do about the file mode... ssh-rs does not support specifying the mode
+        //       via the upload() method, but maybe it copies it from the source file, and we can just
+        //       set the required mode locally?
+
+        let res = scp.upload(Path::new(&local_temp_file_path), Path::new(filepath));
+        if let Err(err) = res {
+            return Err(());
+        }
+        return Ok(());
     }
 
-    pub fn send_file_via_scp(&self, local_filepath: &str, dest_filepath: &str, mode: i32) -> Result<(), ()> {
+    pub fn send_file_via_scp(&mut self, local_filepath: &str, dest_filepath: &str, mode: i32) -> Result<(), ()> {
         // TODO: better error handling here and below...
         if !std::path::Path::new(local_filepath).exists() {
             return Err(());
         }
 
-        let file_size = std::fs::metadata(&local_filepath).unwrap().len();
-
+        let scp = self.local_session.open_scp();
+        if let Err(err) = scp {
+            // TODO:
+            return Err(());
+        }
+        let scp = scp.unwrap();
        
 
-        return Ok(());
+        return Err(());
     }
 
-    fn receive_file_via_scp(&self, remote_filepath: &str, local_filepath: &str) -> Result<(), ()> {
+    fn receive_file_via_scp(&mut self, remote_filepath: &str, local_filepath: &str) -> Result<(), ()> {
        
 
-        return Ok(());
+        return Err(());
     }
 }
 
@@ -160,11 +203,11 @@ impl ControlConnection for ControlConnectionSshRs {
         return self.send_text_file_contents_via_scp(filepath, mode, contents);
     }
 
-    fn send_file(&self, local_filepath: &str, dest_filepath: &str, mode: i32) -> Result<(), ()> {
+    fn send_file(&mut self, local_filepath: &str, dest_filepath: &str, mode: i32) -> Result<(), ()> {
         return self.send_file_via_scp(local_filepath, dest_filepath, mode);
     }
 
-    fn receive_file(&self, local_filepath: &str, dest_filepath: &str) -> Result<(), ()> {
+    fn receive_file(&mut self, local_filepath: &str, dest_filepath: &str) -> Result<(), ()> {
         return self.receive_file_via_scp(local_filepath, dest_filepath);
     }
 

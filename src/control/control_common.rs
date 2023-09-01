@@ -78,7 +78,8 @@ pub enum ControlSessionUserAuth {
 
 pub struct ControlSessionParams {
     connection_type:                ConnectionType,
-    host_target:                    String,
+    target_host:                    String,
+    target_port:                    u32,
     user_auth:                      ControlSessionUserAuth,
 
 pub user_type:                      UserType,
@@ -86,11 +87,17 @@ pub hide_commands_from_history:     bool
 }
 
 impl ControlSessionParams {
-    pub fn new(host_target: &str, user_auth: ControlSessionUserAuth, hide_commands_from_history: bool) -> ControlSessionParams {
+    pub fn new(target_host: &str,
+               target_port: u32,
+               user_auth: ControlSessionUserAuth,
+               hide_commands_from_history: bool) -> ControlSessionParams {
         let user_type = UserType::Standard;
-        ControlSessionParams { connection_type: ConnectionType::SSH, host_target: host_target.to_string(),
-                user_auth,
-                user_type, hide_commands_from_history }
+        ControlSessionParams { connection_type: ConnectionType::SSH,
+             target_host: target_host.to_string(),
+             target_port,
+             user_auth,
+             user_type,
+             hide_commands_from_history }
     }
 }
 
@@ -103,7 +110,8 @@ impl ControlSession {
 
     #[cfg(feature = "openssh")]
     pub fn new_openssh(control_session_params: ControlSessionParams) -> Option<ControlSession> {
-        let ssh_host_target = format!("{}:{}", control_session_params.host_target, 22);
+        let ssh_host_target = format!("{}:{}", control_session_params.target_host,
+                                               control_session_params.target_port );
         let tcp_connection = TcpStream::connect(&ssh_host_target);
         if tcp_connection.is_err() {
             eprintln!("Error: Can't connect to host: '{}'.", ssh_host_target);
@@ -153,7 +161,9 @@ impl ControlSession {
             return None;
         }
 
-        let session = sess_builder.connect(&control_session_params.host_target);
+        let ssh_host_target = format!("{}:{}", control_session_params.target_host, control_session_params.target_port);
+
+        let session = sess_builder.connect(&ssh_host_target);
         if let Err(err) = session {
             eprintln!("Error connecting to host: {}", err.to_string());
             return None;

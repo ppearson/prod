@@ -94,6 +94,7 @@ impl ControlConnectionOpenSSH {
         }
     }
 
+    
     pub fn get_text_file_contents_via_scp(&self, filepath: &str) -> Result<String, ()> {
         let (mut remote_file, _stat) = self.session.scp_recv(Path::new(&filepath)).unwrap();
 
@@ -262,6 +263,8 @@ impl ControlConnection for ControlConnectionOpenSSH {
         return false;
     }
 
+    // Note: these methods don't need to be &mut self for the OpenSSH version, but they
+    //       do for the SSH-rs version, so...
     fn get_text_file_contents(&mut self, filepath: &str) -> Result<String, ()> {
         return self.get_text_file_contents_via_scp(filepath);
     }
@@ -270,11 +273,11 @@ impl ControlConnection for ControlConnectionOpenSSH {
         return self.send_text_file_contents_via_scp(filepath, mode, contents);
     }
 
-    fn send_file(&self, local_filepath: &str, dest_filepath: &str, mode: i32) -> Result<(), ()> {
+    fn send_file(&mut self, local_filepath: &str, dest_filepath: &str, mode: i32) -> Result<(), ()> {
         return self.send_file_via_scp(local_filepath, dest_filepath, mode);
     }
 
-    fn receive_file(&self, local_filepath: &str, dest_filepath: &str) -> Result<(), ()> {
+    fn receive_file(&mut self, local_filepath: &str, dest_filepath: &str) -> Result<(), ()> {
         return self.receive_file_via_scp(local_filepath, dest_filepath);
     }
 
