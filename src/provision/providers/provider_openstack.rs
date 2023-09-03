@@ -22,10 +22,10 @@ use ureq;
 
 use std::collections::BTreeSet;
 
-use crate::provision::provision_provider::{ProvisionProvider};
+use crate::provision::provision_provider::ProvisionProvider;
 use crate::provision::provision_common::{ProvisionActionType, ProvisionActionResult};
-use crate::provision::provision_manager::{ListType};
-use crate::provision::provision_params::{ProvisionParams};
+use crate::provision::provision_manager::ListType;
+use crate::provision::provision_params::ProvisionParams;
 
 pub struct ProviderOpenStack {
     openstack_endpoint_uri:  String,

@@ -14,18 +14,16 @@
 */
 #![allow(dead_code)]
 
-use ssh_rs::ssh;
 use ssh_rs::{LocalSession, SessionConnector};
 
 use std::fs::File;
 use std::path::Path;
 
-use std::io::{BufReader};
 use std::io::prelude::*;
 
 use std::net::TcpStream;
 
-use super::control_connection::{ControlConnection};
+use super::control_connection::ControlConnection;
 
 const BUFFER_SIZE: usize = 16 * 1024;
 

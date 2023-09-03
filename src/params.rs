@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::convert::From;
 
-use yaml_rust::{Yaml};
+use yaml_rust::Yaml;
 
 #[derive(Clone, Debug)]
 #[allow(dead_code)]

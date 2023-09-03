@@ -16,9 +16,9 @@
 use std::collections::BTreeMap;
 use std::fmt;
 use std::io::{BufRead, BufReader};
-use std::path::{Path};
+use std::path::Path;
 
-use crate::common::{FileLoadError};
+use crate::common::FileLoadError;
 
 use super::provision_common::{ProvisionActionType, ProvisionResponseWaitType};
 

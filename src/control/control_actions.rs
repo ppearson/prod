@@ -17,11 +17,11 @@
 
 use std::fmt;
 use std::io::{BufReader, Read};
-use std::path::{Path};
+use std::path::Path;
 
 use yaml_rust::{Yaml, YamlLoader};
 
-use crate::common::{FileLoadError};
+use crate::common::FileLoadError;
 use crate::control::control_common::UserAuthPublicKey;
 use crate::params::{ParamValue, Params};
 use super::control_common::{ControlSession, ControlSessionUserAuth, UserAuthUserPass};

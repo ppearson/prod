@@ -16,17 +16,17 @@
 use std::collections::BTreeSet;
 
 use super::provision_common::{ProvisionActionType, ProvisionActionResult};
-use super::provision_provider::{ProvisionProvider};
+use super::provision_provider::ProvisionProvider;
 
-use super::providers::provider_binary_lane::{ProviderBinaryLane};
-use super::providers::provider_digital_ocean::{ProviderDigitalOcean};
-use super::providers::provider_linode::{ProviderLinode};
-use super::providers::provider_openstack::{ProviderOpenStack};
-use super::providers::provider_vultr::{ProviderVultr};
+use super::providers::provider_binary_lane::ProviderBinaryLane;
+use super::providers::provider_digital_ocean::ProviderDigitalOcean;
+use super::providers::provider_linode::ProviderLinode;
+use super::providers::provider_openstack::ProviderOpenStack;
+use super::providers::provider_vultr::ProviderVultr;
 
-use super::provision_params::{ProvisionParams};
+use super::provision_params::ProvisionParams;
 
-use crate::column_list_printer::{ColumnListPrinter};
+use crate::column_list_printer::ColumnListPrinter;
 
 pub struct ProvisionManager {
     registered_providers: Vec<Box<dyn ProvisionProvider> >

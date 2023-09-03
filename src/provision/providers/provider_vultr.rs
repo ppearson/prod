@@ -15,17 +15,17 @@
 
 use ureq;
 use ureq::Error;
-use serde_json::{Value};
+use serde_json::Value;
 use serde::{Deserialize, Serialize};
 
 use std::collections::BTreeSet;
 
 use crate::column_list_printer::{ColumnListPrinter, Alignment};
 
-use crate::provision::provision_provider::{ProvisionProvider};
+use crate::provision::provision_provider::ProvisionProvider;
 use crate::provision::provision_common::{ActionResultValues, ProvisionActionResult, ProvisionActionType, ProvisionResponseWaitType};
-use crate::provision::provision_manager::{ListType};
-use crate::provision::provision_params::{ProvisionParams};
+use crate::provision::provision_manager::ListType;
+use crate::provision::provision_params::ProvisionParams;
 
 #[derive(Serialize, Deserialize)]
 struct PlanResultItem {

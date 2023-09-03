@@ -25,9 +25,9 @@ mod provision;
 mod column_list_printer;
 
 use control::control_manager::{ControlManager, CommandResult, ControlGeneralParams};
-use control::control_actions::{ControlActions};
+use control::control_actions::ControlActions;
 
-use provision::provision_common::{ProvisionActionType};
+use provision::provision_common::ProvisionActionType;
 use provision::provision_manager::{ProvisionManager, ListType};
 use provision::provision_params::{ProvisionParams, ParamValue};
 

@@ -16,7 +16,7 @@
 use super::common_actions_unix_edit_file;
 
 use super::control_actions::{ActionProvider, ActionResult, ControlAction};
-use super::control_common::{ControlSession};
+use super::control_common::ControlSession;
 
 use std::path::Path;
 

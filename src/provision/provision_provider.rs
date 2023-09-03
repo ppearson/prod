@@ -16,8 +16,8 @@
 use std::collections::BTreeSet;
 
 use super::provision_common::{ProvisionActionType, ProvisionActionResult};
-use super::provision_manager::{ListType};
-use super::provision_params::{ProvisionParams};
+use super::provision_manager::ListType;
+use super::provision_params::ProvisionParams;
 
 pub trait ProvisionProvider {
 

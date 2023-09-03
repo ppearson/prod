@@ -14,7 +14,7 @@
 */
 
 use super::control_actions::{ActionProvider, ActionResult, ControlAction};
-use super::control_common::{ControlSession};
+use super::control_common::ControlSession;
 
 use rpassword::read_password;
 

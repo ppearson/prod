@@ -16,7 +16,7 @@
 use crate::params::{ParamValue, Params};
 
 use super::control_actions::{ActionProvider, ActionResult, ControlAction};
-use super::control_common::{ControlSession};
+use super::control_common::ControlSession;
 
 use super::terminal_helpers_linux;
 
