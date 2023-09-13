@@ -95,7 +95,7 @@ impl ControlConnectionOpenSSH {
     }
 
     
-    pub fn get_text_file_contents_via_scp(&self, filepath: &str) -> Result<String, ()> {
+    pub fn get_text_file_contents_via_scp(&self, filepath: &str) -> Result<String, RemoteFileContentsControlError> {
         let (mut remote_file, _stat) = self.session.scp_recv(Path::new(&filepath)).unwrap();
 
         let mut byte_contents = Vec::new();
@@ -112,7 +112,7 @@ impl ControlConnectionOpenSSH {
         return Ok(string_contents.to_string());
     }
 
-    pub fn send_text_file_contents_via_scp(&self, filepath: &str, mode: i32, contents: &str) -> Result<(), ()> {
+    pub fn send_text_file_contents_via_scp(&self, filepath: &str, mode: i32, contents: &str) -> Result<(), RemoteFileContentsControlError> {
         let byte_contents = contents.as_bytes();
 
         let mut remote_file = self.session.scp_send(Path::new(&filepath), mode, byte_contents.len() as u64, None).unwrap();
@@ -265,11 +265,11 @@ impl ControlConnection for ControlConnectionOpenSSH {
 
     // Note: these methods don't need to be &mut self for the OpenSSH version, but they
     //       do for the SSH-rs version, so...
-    fn get_text_file_contents(&mut self, filepath: &str) -> Result<String, ()> {
+    fn get_text_file_contents(&mut self, filepath: &str) -> Result<String, RemoteFileContentsControlError> {
         return self.get_text_file_contents_via_scp(filepath);
     }
 
-    fn send_text_file_contents(&mut self, filepath: &str, mode: i32, contents: &str) -> Result<(), ()> {
+    fn send_text_file_contents(&mut self, filepath: &str, mode: i32, contents: &str) -> Result<(), RemoteFileContentsControlError> {
         return self.send_text_file_contents_via_scp(filepath, mode, contents);
     }
 

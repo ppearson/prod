@@ -14,6 +14,18 @@
 */
 #![allow(dead_code)]
 
+#[derive(Clone, Debug)]
+pub enum RemoteFileContentsControlError {
+    NotImplemented,
+    LocalFileDoesntExist(String),
+    CantConnect(String),
+    AuthenticationIssue(String),
+    CantCreateLocalTempFile(String), // not relevant for all ControlConnection impls...
+    RemoteFileDoesntExist(String),
+    TransferError(String),
+    Other(String),
+}
+
 pub trait ControlConnection {
     fn send_command(&mut self, _command: &str) {
 
@@ -40,12 +52,12 @@ pub trait ControlConnection {
         return false;
     }
 
-    fn get_text_file_contents(&mut self, _filepath: &str) -> Result<String, ()> {
-        return Err(());
+    fn get_text_file_contents(&mut self, _filepath: &str) -> Result<String, RemoteFileContentsControlError> {
+        return Err(RemoteFileContentsControlError::NotImplemented);
     }
 
-    fn send_text_file_contents(&mut self, _filepath: &str, _mode: i32, _contents: &str) -> Result<(), ()> {
-        return Err(());
+    fn send_text_file_contents(&mut self, _filepath: &str, _mode: i32, _contents: &str) -> Result<(), RemoteFileContentsControlError> {
+        return Err(RemoteFileContentsControlError::NotImplemented);
     }
 
     fn send_file(&mut self, _local_filepath: &str, _dest_filepath: &str, _mode: i32) -> Result<(), ()> {
@@ -81,11 +93,11 @@ impl ControlConnection for ControlConnectionDummyDebug {
         return "";
     }
 
-    fn get_text_file_contents(&mut self, _filepath: &str) -> Result<String, ()> {
-        return Err(());
+    fn get_text_file_contents(&mut self, _filepath: &str) -> Result<String, RemoteFileContentsControlError> {
+        return Err(RemoteFileContentsControlError::NotImplemented);
     }
 
-    fn send_text_file_contents(&mut self, _filepath: &str, _mode: i32, _contents: &str) -> Result<(), ()> {
-        return Err(());
+    fn send_text_file_contents(&mut self, _filepath: &str, _mode: i32, _contents: &str) -> Result<(), RemoteFileContentsControlError> {
+        return Err(RemoteFileContentsControlError::NotImplemented);
     }
 }

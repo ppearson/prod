@@ -23,7 +23,7 @@ use std::io::prelude::*;
 
 use std::net::TcpStream;
 
-use super::control_connection::ControlConnection;
+use super::control_connection::{ControlConnection, RemoteFileContentsControlError};
 
 const BUFFER_SIZE: usize = 16 * 1024;
 
@@ -71,11 +71,11 @@ impl ControlConnectionSshRs {
         
     }
 
-    pub fn get_text_file_contents_via_scp(&mut self, filepath: &str) -> Result<String, ()> {
+    pub fn get_text_file_contents_via_scp(&mut self, filepath: &str) -> Result<String, RemoteFileContentsControlError> {
         let scp = self.local_session.open_scp();
         if let Err(err) = scp {
             // TODO:
-            return Err(());
+            return Err(RemoteFileContentsControlError::CantConnect(err.to_string()));
         }
         let scp = scp.unwrap();
         // use temp-file crate, as there's no current way to get the contents directly with ssr-rs, we need to go
@@ -84,7 +84,7 @@ impl ControlConnectionSshRs {
         let local_temp_file_path = tmp_local_file.path();
         let res = scp.download(local_temp_file_path, Path::new(&filepath));
         if let Err(err) = res {
-            return Err(());
+            return Err(RemoteFileContentsControlError::TransferError(err.to_string()));
         }
 
         let file_handle = std::fs::File::open(local_temp_file_path);
@@ -93,21 +93,21 @@ impl ControlConnectionSshRs {
 
             let read_from_string_res = file.read_to_string(&mut file_contents);
             if let Err(err) = read_from_string_res {
-                return Err(());
+                return Err(RemoteFileContentsControlError::TransferError(err.to_string()));
             }
             
             return Ok(file_contents);
         }
         else {
-            return Err(());
+            return Err(RemoteFileContentsControlError::CantCreateLocalTempFile(file_handle.err().unwrap().to_string()));
         }
     }
 
-    pub fn send_text_file_contents_via_scp(&mut self, filepath: &str, mode: i32, contents: &str) -> Result<(), ()> {
+    pub fn send_text_file_contents_via_scp(&mut self, filepath: &str, mode: i32, contents: &str) -> Result<(), RemoteFileContentsControlError> {
         let scp = self.local_session.open_scp();
         if let Err(err) = scp {
             // TODO:
-            return Err(());
+            return Err(RemoteFileContentsControlError::CantConnect(err.to_string()));
         }
         let scp = scp.unwrap();
 
@@ -117,7 +117,7 @@ impl ControlConnectionSshRs {
         let local_file = File::create(&local_temp_file_path);
         if local_file.is_err() {
             eprintln!("Error creating temporary file to scp text contents to remote: {}", local_temp_file_path.display());
-            return Err(());
+            return Err(RemoteFileContentsControlError::CantCreateLocalTempFile(local_file.err().unwrap().to_string()));
         }
         let mut local_file = local_file.unwrap();
         local_file.write_all(contents.as_bytes()).unwrap();
@@ -128,7 +128,7 @@ impl ControlConnectionSshRs {
 
         let res = scp.upload(Path::new(&local_temp_file_path), Path::new(filepath));
         if let Err(err) = res {
-            return Err(());
+            return Err(RemoteFileContentsControlError::TransferError(err.to_string()));
         }
         return Ok(());
     }
@@ -146,14 +146,28 @@ impl ControlConnectionSshRs {
         }
         let scp = scp.unwrap();
        
+        let res = scp.upload(Path::new(&local_filepath), Path::new(dest_filepath));
+        if let Err(err) = res {
+            return Err(());
+        }
 
-        return Err(());
+        return Ok(());
     }
 
     fn receive_file_via_scp(&mut self, remote_filepath: &str, local_filepath: &str) -> Result<(), ()> {
+        let scp = self.local_session.open_scp();
+        if let Err(err) = scp {
+            // TODO:
+            return Err(());
+        }
+        let scp = scp.unwrap();
        
+        let res = scp.download(Path::new(&local_filepath), Path::new(remote_filepath));
+        if let Err(err) = res {
+            return Err(());
+        }
 
-        return Err(());
+        return Ok(());
     }
 }
 
@@ -193,11 +207,11 @@ impl ControlConnection for ControlConnectionSshRs {
         return false;
     }
 
-    fn get_text_file_contents(&mut self, filepath: &str) -> Result<String, ()> {
+    fn get_text_file_contents(&mut self, filepath: &str) -> Result<String, RemoteFileContentsControlError> {
         return self.get_text_file_contents_via_scp(filepath);
     }
 
-    fn send_text_file_contents(&mut self, filepath: &str, mode: i32, contents: &str) -> Result<(), ()> {
+    fn send_text_file_contents(&mut self, filepath: &str, mode: i32, contents: &str) -> Result<(), RemoteFileContentsControlError> {
         return self.send_text_file_contents_via_scp(filepath, mode, contents);
     }
 
