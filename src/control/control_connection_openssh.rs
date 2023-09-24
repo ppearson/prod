@@ -96,7 +96,14 @@ impl ControlConnectionOpenSSH {
 
     
     pub fn get_text_file_contents_via_scp(&self, filepath: &str) -> Result<String, RemoteFileContentsControlError> {
-        let (mut remote_file, _stat) = self.session.scp_recv(Path::new(&filepath)).unwrap();
+        let scp_res = self.session.scp_recv(Path::new(&filepath));
+
+        // TODO: handle this properly (need to work out what that is though - just checking for common error codes from libssh2?)...
+        if let Err(err) = scp_res {
+            return Err(RemoteFileContentsControlError::Other(err.to_string()));
+        }
+
+        let (mut remote_file, _stat) = scp_res.unwrap();
 
         let mut byte_contents = Vec::new();
         remote_file.read_to_end(&mut byte_contents).unwrap();
@@ -115,12 +122,19 @@ impl ControlConnectionOpenSSH {
     pub fn send_text_file_contents_via_scp(&self, filepath: &str, mode: i32, contents: &str) -> Result<(), RemoteFileContentsControlError> {
         let byte_contents = contents.as_bytes();
 
-        let mut remote_file = self.session.scp_send(Path::new(&filepath), mode, byte_contents.len() as u64, None).unwrap();
+        let scp_res = self.session.scp_send(Path::new(&filepath), mode, byte_contents.len() as u64, None);
+        
+        // TODO: handle this properly (need to work out what that is though - just checking for common error codes from libssh2?)...
+        if let Err(err) = scp_res {
+            return Err(RemoteFileContentsControlError::Other(err.to_string()));
+        }
+
+        let mut remote_file = scp_res.unwrap();
         
         // TODO: there seems to be a 32kb limit here in practice based on send_file_via_scp() testing, so this might
         //       need changing to support longer files as well...
         remote_file.write(byte_contents).unwrap();
-        // Close the channel and wait for the whole content to be tranferred
+        // Close the channel and wait for the whole content to be transferred
         remote_file.send_eof().unwrap();
         remote_file.wait_eof().unwrap();
         remote_file.close().unwrap();
@@ -166,7 +180,7 @@ impl ControlConnectionOpenSSH {
             }
         }
 
-        // Close the channel and wait for the whole content to be tranferred
+        // Close the channel and wait for the whole content to be transferred
         remote_file.send_eof().unwrap();
         remote_file.wait_eof().unwrap();
         remote_file.close().unwrap();
@@ -217,7 +231,7 @@ impl ControlConnectionOpenSSH {
             }
         }
 
-        // Close the channel and wait for the whole content to be tranferred
+        // Close the channel and wait for the whole content to be transferred
         remote_file.send_eof().unwrap();
         remote_file.wait_eof().unwrap();
         remote_file.close().unwrap();

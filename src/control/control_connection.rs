@@ -18,10 +18,10 @@
 pub enum RemoteFileContentsControlError {
     NotImplemented,
     LocalFileDoesntExist(String),
+    RemoteFileDoesntExist(String),
     CantConnect(String),
     AuthenticationIssue(String),
     CantCreateLocalTempFile(String), // not relevant for all ControlConnection impls...
-    RemoteFileDoesntExist(String),
     TransferError(String),
     Other(String),
 }
