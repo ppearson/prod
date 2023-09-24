@@ -21,7 +21,7 @@ use std::path::Path;
 use std::io::BufReader;
 use std::io::prelude::*;
 
-use super::control_connection::ControlConnection;
+use super::control_connection::{ControlConnection, RemoteFileContentsControlError};
 
 const BUFFER_SIZE: usize = 16 * 1024;
 
