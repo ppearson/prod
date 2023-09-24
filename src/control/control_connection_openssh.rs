@@ -108,7 +108,7 @@ impl ControlConnectionOpenSSH {
         let mut byte_contents = Vec::new();
         remote_file.read_to_end(&mut byte_contents).unwrap();
 
-        // Close the channel and wait for the whole content to be tranferred
+        // Close the channel and wait for the whole content to be transferred
         remote_file.send_eof().unwrap();
         remote_file.wait_eof().unwrap();
         remote_file.close().unwrap();
