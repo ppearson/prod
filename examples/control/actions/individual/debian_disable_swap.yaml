@@ -1,0 +1,7 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - disableSwap:
+    filename: /swapfile

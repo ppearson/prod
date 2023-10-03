@@ -228,5 +228,9 @@ impl ActionProvider for AProviderLinuxDebian {
     fn set_time_zone(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         return common_actions_linux::set_time_zone(self, connection, action);
     }
+
+    fn disable_swap(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        return common_actions_linux::disable_swap(self, connection, action);
+    }
 }
 
