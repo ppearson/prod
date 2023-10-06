@@ -202,6 +202,9 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
     }
     let filename = filename.unwrap();
 
+    // Note: filename can be '*' to delete all active swapfiles, however it needs to be quoted in YAML
+    //       to be parsed correctly...
+
     // cat /proc/swaps
     let list_swapfiles_command = "cat /proc/swaps".to_string();
     connection.conn.send_command(&action_provider.post_process_command(&list_swapfiles_command));
@@ -218,7 +221,7 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
         return ActionResult::Failed("".to_string());
     }
 
-    let swapfile_name;
+    let mut swapfile_names_to_delete = Vec::with_capacity(1);
     let swap_file_lines: Vec<&str> = connection.conn.get_previous_stdout_response().lines().collect();
     if swap_file_lines.len() == 1 {
         // we only have a single output line, which is (hopefully) the column headers, with no actual
@@ -227,30 +230,51 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
         //       about it other than fstab? likely not worth worrying about?)
         return ActionResult::Success;
     }
-    else if swap_file_lines.len() == 2 {
-        let data_line = swap_file_lines[1];
-        let data_items: Vec<&str> = data_line.split_ascii_whitespace().into_iter().collect();
-        swapfile_name = data_items[0].to_string();
+    else if swap_file_lines.len() > 1 {
+        for data_line in swap_file_lines.iter().skip(1) {
+            let data_items: Vec<&str> = data_line.split_ascii_whitespace().into_iter().collect();
+            let swapfile_name = data_items[0].to_string();
+
+            if swapfile_name == filename || filename == "*" {
+                swapfile_names_to_delete.push(swapfile_name);
+            }
+        }
     }
     else {
-        // TODO: I guess cope with processing multiple swapfiles, but...?
+        // Not really sure how we'd reach here unless the response was malformed...
         eprintln!("disable_swap error with unexpected response2");
         return ActionResult::Failed("".to_string());
     }
 
-    if swapfile_name != filename {
-        eprintln!("disable_swap error with unexpected swapfile filename");
+    if swapfile_names_to_delete.is_empty() {
+        eprintln!("disable_swap error: couldn't find specified swapfile to disable / delete.");
         return ActionResult::Failed("".to_string());
     }
 
-    let swapoff_command = "swapoff -a".to_string();
-    connection.conn.send_command(&action_provider.post_process_command(&swapoff_command));
+    if filename == "*" {
+        // disable them all
+        let swapoff_command = "swapoff -a".to_string();
+        connection.conn.send_command(&action_provider.post_process_command(&swapoff_command));
 
-    if let Some(str) = connection.conn.get_previous_stderr_response() {
-        eprintln!("disable_swap error - swapoff -a command failed: {}", str);
-        return ActionResult::Failed(str.to_string());
+        if let Some(str) = connection.conn.get_previous_stderr_response() {
+            eprintln!("disable_swap error - swapoff command failed: {}", str);
+            return ActionResult::Failed(str.to_string());
+        }
     }
+    else {
+        // only disable the one specified...
+        // there should only be one in the list...
+        let swap_file = &swapfile_names_to_delete[0];
+        let swapoff_command = format!("swapoff {}", swap_file);
 
+        connection.conn.send_command(&action_provider.post_process_command(&swapoff_command));
+
+        if let Some(str) = connection.conn.get_previous_stderr_response() {
+            eprintln!("disable_swap error - swapoff command failed: {}", str);
+            return ActionResult::Failed(str.to_string());
+        }
+    }
+    
     // TODO: delete the swapfile file (if it still exists)
 
     const FSTAB_FILE_PATH : &str = "/etc/fstab";
@@ -266,8 +290,14 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
     let mut new_file_contents_lines = Vec::new();
 
     for line in fstab_contents_lines {
-        if line.contains(&swapfile_name) {
-            // comment out the line
+        let mut should_comment = false;
+        for swap_file in &swapfile_names_to_delete {
+            if line.contains(swap_file) {
+                should_comment = true;
+            }
+        }
+
+        if should_comment {
             // TODO: check if already commented out?
             new_file_contents_lines.push(format!("#{}", line));
         }
@@ -303,12 +333,14 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
         return ActionResult::Failed("Error: failed to write modified /etc/fstab file.".to_string());
     }
 
-    // now delete the swap file...
-    // TODO: maybe wipe it optionally?
-    let rm_command = format!("rm {}", swapfile_name);
-    connection.conn.send_command(&action_provider.post_process_command(&rm_command));
-    if let Some(strerr) = connection.conn.get_previous_stderr_response() {
-        return ActionResult::Failed(format!("Error deleting swapfile file: {}", strerr));
+    // now delete any of the swapfiles...
+    // TODO: maybe wipe them optionally?
+    for swap_file in swapfile_names_to_delete {
+        let rm_command = format!("rm {}", swap_file);
+        connection.conn.send_command(&action_provider.post_process_command(&rm_command));
+        if let Some(strerr) = connection.conn.get_previous_stderr_response() {
+            return ActionResult::Failed(format!("Error deleting swapfile file: {}", strerr));
+        }
     }
     
     return ActionResult::Success;
