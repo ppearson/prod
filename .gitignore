@@ -1,5 +1,7 @@
 /target
 
+*.DS_Store
+
 /doc/rst/build
 /doc/rst/source/_build
 

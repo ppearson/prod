@@ -27,7 +27,7 @@ use std::net::TcpStream;
 #[cfg(feature = "sshrs")]
 use super::control_connection_sshrs::ControlConnectionSshRs;
 #[cfg(feature = "sshrs")]
-use ssh_rs::ssh;
+use ssh;
 
 // pub use internal::*;
 
@@ -155,6 +155,7 @@ impl ControlSession {
         }
         else if let ControlSessionUserAuth::PublicKey(pub_key) = &control_session_params.user_auth {
             sess_builder = ssh::create_session().username(&pub_key.username)
+                .password(&pub_key.passphrase)
                 .private_key_path(&pub_key.privatekey_path);
         }
         else {

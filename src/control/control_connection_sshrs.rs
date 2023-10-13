@@ -14,7 +14,7 @@
 */
 #![allow(dead_code)]
 
-use ssh_rs::{LocalSession, SessionConnector};
+use ssh::{LocalSession, SessionConnector};
 
 use std::fs::File;
 use std::path::Path;
