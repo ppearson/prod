@@ -21,6 +21,7 @@ use super::control_connection_openssh::ControlConnectionOpenSSH;
 
 #[cfg(feature = "openssh")]
 use ssh2::Session;
+use std::fmt;
 #[cfg(feature = "openssh")]
 use std::net::TcpStream;
 
@@ -101,6 +102,48 @@ impl ControlSessionParams {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum ControlSessionCreationError {
+    ConfigFailure(String),
+    ConnectionError(String),
+    AuthenticationError(String),
+    Other(String),
+}
+
+impl fmt::Display for ControlSessionCreationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ConfigFailure(err) => {
+                write!(f, "Config Failure: {}", err)
+            },
+            Self::ConnectionError(err) => {
+                write!(f, "Can't connect: {}", err)
+            },
+            Self::AuthenticationError(err) => {
+                write!(f, "Authentication Error: {}", err)
+            },
+            Self::Other(err) => {
+                write!(f, "Other error: {}", err)
+            }
+        }
+    }
+}
+
+impl ControlSessionCreationError {
+    pub fn should_attempt_connection_retry(&self) -> bool {
+        // TODO: think about this some more, it's unlikely to
+        //       always be correct, but...
+
+        // for the moment, only return true for connection and other errors.
+        match self {
+            Self::ConfigFailure(_) => false,
+            Self::AuthenticationError(_) => false,
+            Self::ConnectionError(_) => true,
+            Self::Other(_) => true
+        }
+    }
+}
+
 pub struct ControlSession {
     pub conn:   Box<dyn ControlConnection>, 
     pub params: ControlSessionParams,
@@ -109,13 +152,12 @@ pub struct ControlSession {
 impl ControlSession {
 
     #[cfg(feature = "openssh")]
-    pub fn new_openssh(control_session_params: ControlSessionParams) -> Option<ControlSession> {
+    pub fn new_openssh(control_session_params: ControlSessionParams) -> Result<ControlSession, ControlSessionCreationError> {
         let ssh_host_target = format!("{}:{}", control_session_params.target_host,
                                                control_session_params.target_port );
         let tcp_connection = TcpStream::connect(&ssh_host_target);
-        if tcp_connection.is_err() {
-            eprintln!("Error: Can't connect to host: '{}'.", ssh_host_target);
-            return None;
+        if let Err(err) = tcp_connection {
+            return Err(ControlSessionCreationError::ConnectionError(format!("Error connecting to host: {}", err.to_string())));
         }
         let tcp_connection = tcp_connection.unwrap();
         let mut sess = Session::new().unwrap();
@@ -125,9 +167,9 @@ impl ControlSession {
         let auth_res;
         if let ControlSessionUserAuth::UserPass(user_pass) = &control_session_params.user_auth {
             auth_res = sess.userauth_password(&user_pass.username, &user_pass.password);
-            if auth_res.is_err() {
-                eprintln!("Error: Authentication failure with user: {}...", &user_pass.username);
-                return None;
+            if let Err(err) = auth_res {
+                return Err(ControlSessionCreationError::AuthenticationIssue(
+                    format!("Authentication failure with user/pass: {}, err: {}...", &user_pass.username, err)));
             }
         }
         else if let ControlSessionUserAuth::PublicKey(pub_key) = &control_session_params.user_auth {
@@ -135,18 +177,22 @@ impl ControlSession {
             let priv_key_path = std::path::Path::new(&pub_key.privatekey_path);
             auth_res = sess.userauth_pubkey_file(&pub_key.username, pub_key_path,
                                                  priv_key_path, Some(&pub_key.passphrase));
-            if auth_res.is_err() {
-                eprintln!("Error: Authentication failure with phrase/key for user: {}...", &pub_key.username);
-                return None;
+            if let Err(err) = auth_res {
+                return Err(ControlSessionCreationError::AuthenticationIssue(
+                    format!("Authentication failure with phrase/key for user: {}, err: {}...", &user_pass.username, err)));
             }
+        }
+        else {
+            // this shouldn't be reach-able, but...
+            return Err(ControlSessionCreationError::ConfigFailure("Unhandled auth type".to_string()));
         }
 
         let ssh_connection = ControlConnectionOpenSSH::new(sess);
-        Some(ControlSession { conn: Box::new(ssh_connection), params: control_session_params })
+        Ok(ControlSession { conn: Box::new(ssh_connection), params: control_session_params })
     }
 
     #[cfg(feature = "sshrs")]
-    pub fn new_sshrs(control_session_params: ControlSessionParams) -> Option<ControlSession> {
+    pub fn new_sshrs(control_session_params: ControlSessionParams) -> Result<ControlSession, ControlSessionCreationError> {
         let sess_builder;
         
         if let ControlSessionUserAuth::UserPass(user_pass) = &control_session_params.user_auth {
@@ -159,27 +205,40 @@ impl ControlSession {
                 .private_key_path(&pub_key.privatekey_path);
         }
         else {
-            return None;
+            // this shouldn't be reach-able, but...
+            return Err(ControlSessionCreationError::ConfigFailure("Unhandled auth type".to_string()));
         }
 
         let ssh_host_target = format!("{}:{}", control_session_params.target_host, control_session_params.target_port);
 
         let session = sess_builder.connect(&ssh_host_target);
-        if let Err(err) = session {
-            eprintln!("Error connecting to host: {}", err.to_string());
-            return None;
+        if let Err(err) = &session {
+            match err {
+                ssh::SshError::IoError(int_err) => {
+                    return Err(ControlSessionCreationError::ConnectionError(format!("Error connecting to host: {}", int_err.to_string())));
+                },
+                ssh::SshError::TimeoutError => {
+                    return Err(ControlSessionCreationError::ConnectionError(format!("Error connecting to host - timed outs: {}", err.to_string())));
+                },
+                ssh::SshError::AuthError => {
+                    return Err(ControlSessionCreationError::AuthenticationError(format!("Error authenticating with host: {}", err.to_string())));
+                },
+                _           => {
+                    return Err(ControlSessionCreationError::ConnectionError(format!("Error connecting to host: {}", err.to_string())));
+                }
+            }
         }
 
         let session = session.unwrap();
 
         let ssh_connection = ControlConnectionSshRs::new(session);
-        Some(ControlSession { conn: Box::new(ssh_connection), params: control_session_params })
+        Ok(ControlSession { conn: Box::new(ssh_connection), params: control_session_params })
     }
 
-    pub fn new_dummy_debug(control_session_params: ControlSessionParams) -> Option<ControlSession> {
+    pub fn new_dummy_debug(control_session_params: ControlSessionParams) -> Result<ControlSession, ControlSessionCreationError> {
         let dummy_connection = ControlConnectionDummyDebug::new();
 
-        Some(ControlSession { conn: Box::new(dummy_connection), params: control_session_params })
+        Ok(ControlSession { conn: Box::new(dummy_connection), params: control_session_params })
     }
 }
 

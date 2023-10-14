@@ -87,8 +87,8 @@ impl ControlManager {
 #[cfg(not(any(feature = "openssh", feature = "sshrs")))]
         let connection = ControlSession::new_dummy_debug(session_params);
 
-        if connection.is_none() {
-            eprintln!("Error connecting to hostname...");
+        if let Err(err) = connection {
+            eprintln!("Error connecting to host: {}, error: {}", host, err);
             return CommandResult::ErrorCantConnect("".to_string());
         }
         let mut connection = connection.unwrap();
@@ -232,23 +232,29 @@ impl ControlManager {
 #[cfg(not(any(feature = "openssh", feature = "sshrs")))]
             let inner_connection = ControlSession::new_dummy_debug(session_params);
 
-            if let Some(connection_result) = inner_connection {
+            if let Ok(connection_result) = inner_connection {
                 // we were successful, so save the result, and break out of the retry loop.
                 connection = connection_result;
                 break;
             }
 
-            // otherwise, we had an error, so retry if requested...
-            if general_params.retry {
+            // otherwise, we had an error, so retry if requested and it might make sense to based
+            // of the error type...
+
+            let connection_error = inner_connection.err().unwrap();
+
+            // TODO: have a re-think about the impl of should_attempt_connection_retry()...
+            let should_retry = general_params.retry && connection_error.should_attempt_connection_retry();
+
+            if should_retry {
                 // we want to retry automatically after a pause...
-                // TODO: only if it was a connection failure!!
-                //       we probably don't want to keep retrying if it was an auth failure (account lockout!)
                 if retry_count <= RETRY_LIMIT {
                     eprintln!("Connection failed... will retry in 30 secs...");
                     retry_count += 1;
                 }
                 else {
-                    eprintln!("Connection failed after: {} retry attempts, will abort.", retry_count);
+                    eprintln!("Connection failed after: {} retry attempts, will abort. Latest error was: {}",
+                             retry_count, connection_error);
                     return
                 }
                 std::thread::sleep(std::time::Duration::from_secs(30));
@@ -259,7 +265,8 @@ impl ControlManager {
                 // TODO: sprinkling this 22 default everywhere isn't great... maybe make it non-optional
                 //       in the params struct so it's just default constructed with 22, and overridden
                 //       if necessary?
-                eprintln!("Error connecting to: {}:{}...", target_host, target_port.unwrap_or(22));
+                eprintln!("Error connecting to: {}:{}, error: {}...", target_host, target_port.unwrap_or(22),
+                            connection_error);
                 return;
             }
         }
