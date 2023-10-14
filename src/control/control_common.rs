@@ -168,7 +168,7 @@ impl ControlSession {
         if let ControlSessionUserAuth::UserPass(user_pass) = &control_session_params.user_auth {
             auth_res = sess.userauth_password(&user_pass.username, &user_pass.password);
             if let Err(err) = auth_res {
-                return Err(ControlSessionCreationError::AuthenticationIssue(
+                return Err(ControlSessionCreationError::AuthenticationError(
                     format!("Authentication failure with user/pass: {}, err: {}...", &user_pass.username, err)));
             }
         }
@@ -178,8 +178,8 @@ impl ControlSession {
             auth_res = sess.userauth_pubkey_file(&pub_key.username, pub_key_path,
                                                  priv_key_path, Some(&pub_key.passphrase));
             if let Err(err) = auth_res {
-                return Err(ControlSessionCreationError::AuthenticationIssue(
-                    format!("Authentication failure with phrase/key for user: {}, err: {}...", &user_pass.username, err)));
+                return Err(ControlSessionCreationError::AuthenticationError(
+                    format!("Authentication failure with phrase/key for user: {}, err: {}...", &pub_key.username, err)));
             }
         }
         else {
