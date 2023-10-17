@@ -341,6 +341,9 @@ impl ControlManager {
                 ControlActionType::DisableSwap => {
                     provider.disable_swap(&mut connection, action)
                 },
+                ControlActionType::CreateFile => {
+                    provider.create_file(&mut connection, action)
+                },
                 ControlActionType::NotSet | ControlActionType::Unrecognised => {
                    ActionResult::Failed("Invalid Action Type".to_string())
                 }

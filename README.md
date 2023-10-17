@@ -16,8 +16,8 @@ afterwards, based off text / YAML scripts describing properties of what is desir
 It's still very much work-in-progress, although it is functional to a basic degree.
 
 
-Control functionality relies on the ssh2 crate, which depends on openssl, but this feature can be disabled (to
-leave only provisioning functionality active).
+Control functionality can utilise either the `ssh2` crate (which depends on openssl) or the `ssh-rs` crate, and this can be
+controlled with features in Cargo.toml, or disabled completely.
 
 
 Provisioning

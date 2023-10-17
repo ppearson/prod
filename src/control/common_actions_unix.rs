@@ -354,3 +354,51 @@ pub fn create_symlink(action_provider: &dyn ActionProvider, connection: &mut Con
 
     return ActionResult::Success;
 }
+
+pub fn create_file(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    // validate params
+    if !action.params.has_value("path") {
+        return ActionResult::InvalidParams("The 'path' parameter was not specified.".to_string());
+    }
+
+    let path_to_create = action.params.get_string_value("path").unwrap();
+
+    // TODO: maybe add support for creating any subdirs if required?
+    
+    // see if there's any content we need
+    if let Some(content) = action.params.get_string_value("content") {
+        // send the content as a file to write
+        let send_res = connection.conn.send_text_file_contents(&path_to_create, 0o644, &content);
+        if send_res.is_err() {
+            return ActionResult::Failed("Failed to send text file contents to create file.".to_string());
+        }
+    }
+    else {
+        // create an empty file, as there was no content param specified.
+        let touch_command = format!("touch {}", path_to_create);
+        connection.conn.send_command(&action_provider.post_process_command(&touch_command));
+        if let Some(strerr) = connection.conn.get_previous_stderr_response() {
+            return ActionResult::Failed(format!("Failed to create file: Err: {}", strerr));
+        }
+    }
+
+    // TODO: maybe move this somewhere more common, so it can be shared more?
+    if let Some(permissions) = action.params.get_string_or_int_value_as_string("permissions") {
+        let chmod_command = format!("chmod {} {}", permissions, path_to_create);
+        connection.conn.send_command(&action_provider.post_process_command(&chmod_command));
+    }
+
+    if let Some(owner) = action.params.get_string_value("owner") {
+        let chown_command = format!("chown {} {}", owner, path_to_create);
+        connection.conn.send_command(&action_provider.post_process_command(&chown_command));
+    }
+
+    if let Some(group) = action.params.get_string_value("group") {
+        let chgrp_command = format!("chgrp {} {}", group, path_to_create);
+        connection.conn.send_command(&action_provider.post_process_command(&chgrp_command));
+    }
+
+    // TODO: check for 'groups' as well to handle setting multiple...
+
+    return ActionResult::Success;
+}

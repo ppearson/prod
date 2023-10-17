@@ -232,5 +232,9 @@ impl ActionProvider for AProviderLinuxDebian {
     fn disable_swap(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         return common_actions_linux::disable_swap(self, connection, action);
     }
+
+    fn create_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        return common_actions_unix::create_file(self, connection, action);
+    }
 }
 

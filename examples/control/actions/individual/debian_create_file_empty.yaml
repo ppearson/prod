@@ -1,0 +1,11 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - createFile:
+    path: /tmp/test_file_empty.txt
+    permissions: 777
+    owner: peter
+    group: peter
+

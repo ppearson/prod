@@ -50,6 +50,7 @@ pub enum ControlActionType {
     CreateSymlink,
     SetTimeZone,
     DisableSwap,
+    CreateFile,
 }
 
 impl fmt::Display for ControlActionType {
@@ -74,6 +75,7 @@ impl fmt::Display for ControlActionType {
             ControlActionType::CreateSymlink    => write!(f, "createSymlink"),
             ControlActionType::SetTimeZone      => write!(f, "setTimeZone"),
             ControlActionType::DisableSwap      => write!(f, "disableSwap"),
+            ControlActionType::CreateFile       => write!(f, "createFile"),
         }
     }
 }
@@ -268,6 +270,7 @@ impl ControlActions {
             "createSymlink" =>      ControlActionType::CreateSymlink,
             "setTimeZone" =>        ControlActionType::SetTimeZone,
             "disableSwap" =>        ControlActionType::DisableSwap,
+            "createFile" =>         ControlActionType::CreateFile,
             _ =>                    ControlActionType::Unrecognised
         };
 
@@ -497,6 +500,10 @@ pub trait ActionProvider {
     }
 
     fn disable_swap(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
+        return ActionResult::NotImplemented;
+    }
+
+    fn create_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
     }
 

@@ -1,0 +1,15 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - createFile:
+    path: /tmp/test_file_with_content.txt
+    content: |
+        File Line 01
+        File Line 02
+          Indented Line 03
+    permissions: 777
+    owner: peter
+    group: peter
+
