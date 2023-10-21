@@ -1,0 +1,56 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - installPackages:
+    packages:
+      - "nginx"
+      - "ufw"
+ - firewall:
+    type: ufw
+    enabled: true
+    rules:
+      - "allow 'Nginx Full'"
+ - createDirectory:
+    path: /var/www/testsite1.com/
+    owner: www-data
+    group: www-data
+ - createFile:
+    path: /var/www/testsite1.com/index.html
+    content: |
+        <html>
+        <head><title>This is a Test Page</title></head>
+        <body>
+            <h2>Test Page</h2>
+            <p>This is a <b>Test Page</b> of content.</p>
+        </body>
+        </html>
+    owner: www-data
+    group: www-data
+ - createFile:
+    path: /etc/nginx/sites-available/testsite1.com.conf
+    content: |
+         server {
+          listen 80;
+          listen [::]:80;
+
+          root /var/www/testsite1.com/;
+          index index.html;
+
+          #server_name testsite1.com www.testsite1.com;
+          server_name _;
+
+          location / {
+           try_files $uri $uri/ =404;
+          }
+         }
+ - createSymlink:
+    targetPath: /etc/nginx/sites-available/testsite1.com.conf
+    linkPath: /etc/nginx/sites-enabled/testsite1.com.conf
+ - removeFile:
+    # remove the existing default fallback, so the _ server_name doesn't clash
+    file: /etc/nginx/site-enabled/default
+ - systemCtl:
+     service: "nginx"
+     action: restart

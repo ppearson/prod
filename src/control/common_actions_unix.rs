@@ -18,8 +18,6 @@ use super::common_actions_unix_edit_file;
 use super::control_actions::{ActionProvider, ActionResult, ControlAction};
 use super::control_common::ControlSession;
 
-use std::path::Path;
-
 pub fn generic_command(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
     if !action.params.has_value("command") {
         return ActionResult::InvalidParams("The 'command' parameter was not specified.".to_string());
@@ -30,8 +28,16 @@ pub fn generic_command(action_provider: &dyn ActionProvider, connection: &mut Co
         connection.conn.send_command(&action_provider.post_process_command(&command));
     }
 
-    // TODO: check if there's a 'errorIfStdErrOutputExists' param, and if so
-    //       validate what the output of the command was...
+    if action.params.get_value_as_bool("errorIfStdErrOutputExists", false) {
+        if let Some(strerr) = connection.conn.get_previous_stderr_response() {
+            return ActionResult::Failed(format!("genericCommand action failed due to unexpected stderr output: {}", strerr));
+        }
+    }
+
+    // TODO: support for specifying expected string output to look for (stderr/stdout)
+    //       for success criteria...
+
+    // TODO: support for specifying expected number of lines of output as well...
 
     return ActionResult::Success;
 }
@@ -319,32 +325,13 @@ pub fn create_symlink(action_provider: &dyn ActionProvider, connection: &mut Con
     }
     let target_path = target_path.unwrap();
 
-    // link name / path
+    // link path
     let link_path = action.params.get_string_value("linkPath");
     if link_path.is_none() {
         return ActionResult::InvalidParams("The 'linkPath' parameter was not specified.".to_string());
     }
     let link_path = link_path.unwrap();
-
-    let link_dir = Path::new(&link_path);
-    // TODO: error handling - and this might be a directory?
-    let link_name = link_dir.file_name().unwrap();
-    let link_dir = link_dir.parent().unwrap().to_str().unwrap();
-
-    // Note: currently this will have to be true I think, otherwise we'd be creating the link
-    //       in the current working directory which is likely to be unhelpful...
-    if link_path.contains('/') {     
-        let cd_command = format!("cd {}", link_dir);
-        connection.conn.send_command(&action_provider.post_process_command(&cd_command));
-
-        // check there was no error response
-        if let Some(str) = connection.conn.get_previous_stderr_response() {
-            eprintln!("create_symlink error: {}", str);
-            return ActionResult::Failed(str.to_string());
-        }
-    }
-
-    let ln_command = format!("ln -s {} {}", target_path, link_name.to_str().unwrap());
+    let ln_command = format!("ln -s {} {}", target_path, link_path);
     connection.conn.send_command(&action_provider.post_process_command(&ln_command));
 
     if let Some(str) = connection.conn.get_previous_stderr_response() {
