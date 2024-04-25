@@ -16,6 +16,8 @@
 #![allow(dead_code)]
 
 extern crate rpassword;
+use std::result;
+
 use rpassword::read_password;
 
 use crate::control::control_actions::{ActionResult, ControlActionType};
@@ -123,7 +125,7 @@ impl ControlManager {
 
         let mut hostname = String::new();
         let mut port: Option<u32> = None;
-        if actions.host.is_empty() || actions.host == "$PROMPT" {
+        if actions.hostname.is_empty() || actions.hostname == "$PROMPT" {
             eprintln!("Please enter hostname to connect to:");
             std::io::stdin().read_line(&mut hostname).expect("Error reading hostname from std input");
             hostname = hostname.trim().to_string();
@@ -147,7 +149,7 @@ impl ControlManager {
             asked_for_hostname = true;
         }
         else {
-            hostname = actions.host.clone();
+            hostname = actions.hostname.clone();
             port = actions.port;
         }
 
@@ -272,6 +274,27 @@ impl ControlManager {
         }
 
         eprintln!("Connected successfully...");
+
+        // see if we need to validate the system details against constraints
+        // (i.e. to check it's say "Debian" >= 12)
+        if actions.system_validation.needs_checking() {
+            // we need to validate something, so ask the provider for details
+            let system_details = provider.get_system_details(&mut connection);
+            // TODO: handle error value more correctly (currently inner implementations of get_system_details() eprintln())...
+            if let Err(_) = system_details {
+                eprintln!("Error: Couldn't validate system host details: error response was received from host request. Aborting.");
+                return;
+            }
+            if let Ok(result) = system_details {
+                // we've got details, so check they're acceptable to the validation constraints described...
+                if !actions.system_validation.check_actual_distro_values(&result.distr_id, &result.release) {
+                    // the check failed...
+                    eprintln!("Error: System validation failed expected constraints. System release: '{}'. Aborting.", result.release);
+                    return;
+                }
+                // otherwise the check passed, so we can just continue...
+            }
+        }
 
 /*
         let closure = || provider.add_user(&mut connection, &actions.actions[0]);

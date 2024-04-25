@@ -32,6 +32,8 @@ pub mod control_connection_sshrs;
 
 pub mod control_manager;
 
+pub mod control_system_validation;
+
 pub mod terminal_helpers_linux;
 pub mod terminal_helpers_unix;
 

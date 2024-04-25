@@ -16,7 +16,7 @@
 use super::common_actions_linux;
 use super::common_actions_unix;
 
-use super::control_actions::{ActionProvider, ActionResult, ControlAction};
+use super::control_actions::{ActionProvider, ActionResult, ControlAction, GenericError, SystemDetailsResult};
 use super::control_common::{ControlSession, ControlSessionParams};
 
 pub struct AProviderLinuxDebian {
@@ -45,6 +45,11 @@ impl ActionProvider for AProviderLinuxDebian {
 
     fn generic_command(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         return common_actions_unix::generic_command(self, connection, action);
+    }
+
+    // this is not really an Action, as it doesn't modify anything, it just returns values, but...
+    fn get_system_details(&self, connection: &mut ControlSession) -> Result<SystemDetailsResult, GenericError> {
+        return common_actions_linux::get_system_details(self, connection);
     }
 
     fn add_user(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {

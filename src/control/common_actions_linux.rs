@@ -15,10 +15,48 @@
 
 use crate::control::terminal_helpers_linux;
 
-use super::control_actions::{ActionProvider, ActionResult, ControlAction};
+use super::control_actions::{ActionProvider, ActionResult, ControlAction, GenericError, SystemDetailsResult};
 use super::control_common::ControlSession;
 
 use rpassword::read_password;
+
+// Note: this isn't strictly-speaking an Action which modifies any system state, it just returns details...
+pub fn get_system_details(action_provider: &dyn ActionProvider, connection: &mut ControlSession) -> Result<SystemDetailsResult, GenericError> {
+    // for the moment, assume the system's always going to be Linux,
+    // but in the future we might need to more gracefully handle errors and attempt to work out
+    // what platform it is...
+
+    let full_command = "lsb_release --id --release";
+
+    connection.conn.send_command(&action_provider.post_process_command(&full_command));
+
+    if connection.conn.get_previous_stdout_response().is_empty() {
+        // stdout output was empty, which isn't expected...
+        eprintln!("Invalid response from get_system_details() lsb_release command.");
+        return Err(GenericError::CommandFailed("".to_string()));
+    }
+
+    let mut dist_id = String::new();
+    let mut release = String::new();
+
+    for line in connection.conn.get_previous_stdout_response().lines() {
+        if let Some(value) = line.strip_prefix("Distributor ID:") {
+            dist_id = value.trim().to_string();
+        }
+        else if let Some(value) = line.strip_prefix("Release:") {
+            release = value.trim().to_string();
+        }
+    }
+
+    // check we got something...
+    // TODO: better than this?
+    if dist_id.is_empty() || release.is_empty() {
+        eprintln!("Unexpected response from get_system_details() lsb_release command. Expected values were not provided.");
+        return Err(GenericError::CommandFailed("".to_string()));
+    }
+
+    Ok(SystemDetailsResult { distr_id: dist_id, release })
+}
 
 pub fn add_user(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
     // use useradd command which should be common across Linux distros...

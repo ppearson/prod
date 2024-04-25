@@ -19,10 +19,12 @@ use std::fmt;
 use std::io::{BufReader, Read};
 use std::path::Path;
 
+use serde_json::Value;
 use yaml_rust::{Yaml, YamlLoader};
 
 use crate::common::FileLoadError;
 use crate::control::control_common::UserAuthPublicKey;
+use crate::control::control_system_validation::SystemValidation;
 use crate::params::{ParamValue, Params};
 use super::control_common::{ControlSession, ControlSessionUserAuth, UserAuthUserPass};
 use super::control_common::{ControlSessionParams, UserType};
@@ -101,12 +103,20 @@ pub enum ActionResult {
 
 #[derive(Clone, Debug)]
 pub struct ControlActions {
+    // provider to use
     pub provider:   String,
-    pub host:       String,
+    // hostname to connect to
+    pub hostname:   String,
+    // port to use 
     pub port:       Option<u32>,
 
+    // authentication
     pub auth:       ControlSessionUserAuth,
 
+    // optional validation
+    pub system_validation: SystemValidation,
+
+    // full actions to run
     pub actions:    Vec<ControlAction>,
 }
 
@@ -118,7 +128,7 @@ pub struct ControlAction {
 
 impl fmt::Display for ControlActions {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Provider: {}, Host: {}, User: {},", self.provider, self.host, "")?; // TODO: fix this for auth
+        writeln!(f, "Provider: {}, Hostname: {}, User: {},", self.provider, self.hostname, "")?; // TODO: fix this for auth
         writeln!(f, " actions ({}): {{", self.actions.len())?;
         for action in &self.actions {
             write!(f, "  {}", action)?
@@ -130,9 +140,10 @@ impl fmt::Display for ControlActions {
 impl ControlActions {
     pub fn new() -> ControlActions {
         ControlActions { provider: String::new(),
-                         host: String::new(),
+                         hostname: String::new(),
                          port: None,
                          auth: ControlSessionUserAuth::UserPass(UserAuthUserPass::new("", "")),
+                         system_validation: SystemValidation::new(),
                          actions: Vec::with_capacity(0)}
     }
 
@@ -196,11 +207,37 @@ impl ControlActions {
                                     "provider" => {
                                         control_actions.provider = value.as_str().unwrap().to_string();
                                     },
-                                    "host" => {
-                                        control_actions.host = value.as_str().unwrap().to_string();
+                                    // TODO: still support "host" for backwards-compatibility for the moment, but at some point remove it...
+                                    "host" | "hostname" => {
+                                        control_actions.hostname = value.as_str().unwrap().to_string();
                                     },
                                     "port" => {
+                                        // TODO: this isn't going to work as the Yaml:: value won't be a string...
                                         control_actions.port = Some(value.as_str().unwrap().parse::<u32>().unwrap());
+                                    },
+                                    "systemValidation" => {
+                                        // for "convenience", we allow different things, so parse it as a string...
+                                        let value_as_string = match value.clone() {
+                                            Yaml::String(val) => {
+                                                val.clone()
+                                            },
+                                            Yaml::Integer(val) => {
+                                                format!("{}", val)
+                                            },
+                                            _ => {
+                                                eprintln!("Error parsing 'systemValidation' param as a string: input YAML value was of an unexpected type.");
+                                                return Err(FileLoadError::CustomError("Error loading file.".to_string()));
+                                            }
+                                        };
+
+                                        let parse_result = SystemValidation::parse_string_value(&value_as_string);
+                                        if let Ok(validation) = parse_result {
+                                            control_actions.system_validation = validation;
+                                        }
+                                        else if let Err(err) = parse_result {
+                                            eprintln!("Error parsing 'systemValidation' param: {}", err);
+                                            return Err(FileLoadError::CustomError("Error loading file.".to_string()));
+                                        }
                                     }
                                     "actions" => {
                                         control_actions.ingest_control_actions_yaml_items(&value);
@@ -400,6 +437,30 @@ impl ControlAction {
     }
 }
 
+// for retrieving info about host systems.
+// Note: this is currently designed around Linux
+//       conventions, for things like FreeBSD and others
+//       it might not match very well...
+pub struct SystemDetailsResult {
+    // distributor ID - i.e. "Debian"
+    pub     distr_id:     String,
+    // release number, i.e. "12", or "20.04"
+    pub     release:      String,
+}
+
+impl SystemDetailsResult {
+    pub fn new() -> SystemDetailsResult {
+        SystemDetailsResult { distr_id: String::new(), release: String::new() }
+    }
+}
+
+// generic error enum for action provider methods which return values
+pub enum GenericError {
+    NotImplemented,
+    CommandFailed(String),
+    Other(String)
+}
+
 pub trait ActionProvider {
 
     // not sure about this one - ideally it'd be static, but...
@@ -437,6 +498,11 @@ pub trait ActionProvider {
 
     fn generic_command(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
         return ActionResult::NotImplemented;
+    }
+
+    // this is not really an Action, as it doesn't modify anything, it just returns values, but...
+    fn get_system_details(&self, _connection: &mut ControlSession) -> Result<SystemDetailsResult, GenericError> {
+        return Err(GenericError::NotImplemented);
     }
 
     fn add_user(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {

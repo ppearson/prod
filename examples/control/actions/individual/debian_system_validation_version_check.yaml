@@ -1,0 +1,12 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ systemValidation: <12
+ actions:
+ - genericCommand:
+    command: time
+    errorIfStdErrOutputExists: true
+
+
+
