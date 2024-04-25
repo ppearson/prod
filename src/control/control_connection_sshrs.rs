@@ -67,7 +67,7 @@ impl ControlConnectionSshRs {
         self.prev_std_out = String::from_utf8(vec).unwrap();
     }
 
-    fn send_command_shell(&mut self, command: &str) {
+    fn send_command_shell(&mut self, _command: &str) {
         
     }
 
@@ -103,7 +103,7 @@ impl ControlConnectionSshRs {
         }
     }
 
-    pub fn send_text_file_contents_via_scp(&mut self, filepath: &str, mode: i32, contents: &str) -> Result<(), RemoteFileContentsControlError> {
+    pub fn send_text_file_contents_via_scp(&mut self, filepath: &str, _mode: i32, contents: &str) -> Result<(), RemoteFileContentsControlError> {
         let scp = self.local_session.open_scp();
         if let Err(err) = scp {
             // TODO:
@@ -114,7 +114,7 @@ impl ControlConnectionSshRs {
         // write the text file contents to a temporary file
         let tmp_local_file = temp_file::empty();
         let local_temp_file_path = tmp_local_file.path();
-        let local_file = File::create(&local_temp_file_path);
+        let local_file = File::create(local_temp_file_path);
         if local_file.is_err() {
             eprintln!("Error creating temporary file to scp text contents to remote: {}", local_temp_file_path.display());
             return Err(RemoteFileContentsControlError::CantCreateLocalTempFile(local_file.err().unwrap().to_string()));
@@ -133,7 +133,7 @@ impl ControlConnectionSshRs {
         return Ok(());
     }
 
-    pub fn send_file_via_scp(&mut self, local_filepath: &str, dest_filepath: &str, mode: i32) -> Result<(), ()> {
+    pub fn send_file_via_scp(&mut self, local_filepath: &str, dest_filepath: &str, _mode: i32) -> Result<(), ()> {
         // TODO: better error handling here and below...
         if !std::path::Path::new(local_filepath).exists() {
             return Err(());

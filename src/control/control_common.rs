@@ -211,20 +211,20 @@ impl ControlSession {
 
         let ssh_host_target = format!("{}:{}", control_session_params.target_host, control_session_params.target_port);
 
-        let session = sess_builder.connect(&ssh_host_target);
+        let session = sess_builder.connect(ssh_host_target);
         if let Err(err) = &session {
             match err {
                 ssh::SshError::IoError(int_err) => {
-                    return Err(ControlSessionCreationError::ConnectionError(format!("Error connecting to host: {}", int_err.to_string())));
+                    return Err(ControlSessionCreationError::ConnectionError(format!("Error connecting to host: {}", int_err)));
                 },
                 ssh::SshError::TimeoutError => {
-                    return Err(ControlSessionCreationError::ConnectionError(format!("Error connecting to host - timed outs: {}", err.to_string())));
+                    return Err(ControlSessionCreationError::ConnectionError(format!("Error connecting to host - timed outs: {}", err)));
                 },
                 ssh::SshError::AuthError => {
-                    return Err(ControlSessionCreationError::AuthenticationError(format!("Error authenticating with host: {}", err.to_string())));
+                    return Err(ControlSessionCreationError::AuthenticationError(format!("Error authenticating with host: {}", err)));
                 },
                 _           => {
-                    return Err(ControlSessionCreationError::ConnectionError(format!("Error connecting to host: {}", err.to_string())));
+                    return Err(ControlSessionCreationError::ConnectionError(format!("Error connecting to host: {}", err)));
                 }
             }
         }

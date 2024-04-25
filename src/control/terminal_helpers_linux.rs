@@ -20,7 +20,7 @@ pub fn extract_details_from_stat_output(output: &str) -> Option<(String, String,
         if line.starts_with("Access:") {
             // first (and only) line we care about...
 
-            let res = extract_contents_from_brackets(&line);
+            let res = extract_contents_from_brackets(line);
             if let Some(items) = res {
                 if items.len() == 3 {
                     let permissions_full = items[0].clone();

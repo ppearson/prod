@@ -31,11 +31,13 @@ use provision::provision_common::ProvisionActionType;
 use provision::provision_manager::{ProvisionManager, ListType};
 use provision::provision_params::{ProvisionParams, ParamValue};
 
+/*
 enum MainType {
     Unknown,
     Provision,
     Control
 }
+*/
 
 fn print_help() {
     eprintln!("prod usage:");
@@ -111,7 +113,7 @@ pub fn handle_provision_command(args: &Vec<String>) -> bool {
     if next_arg.contains('.') && args.len() == 3 {
         // likely a provision file
         // TODO: error handling!
-        let provision_params = ProvisionParams::from_file(&next_arg).unwrap();
+        let provision_params = ProvisionParams::from_file(next_arg).unwrap();
 
         if provision_params.provider.is_empty() {
             eprintln!("Error: no provider was specified in file: {}", next_arg);
@@ -162,12 +164,12 @@ pub fn handle_provision_command(args: &Vec<String>) -> bool {
     }
 
     // didn't handle input...
-    return false;
+    false
 }
 
 // return value indicates whether function handled input or not. If true it did,
 // if false, it fell through...
-pub fn handle_control_command(args: &Vec<String>) -> bool {
+pub fn handle_control_command(args: &[String]) -> bool {
     let control_manager = ControlManager::new();
 
     let mut general_params = ControlGeneralParams::new();
@@ -194,7 +196,6 @@ pub fn handle_control_command(args: &Vec<String>) -> bool {
                 }
                 else {
                     // error out...
-
                     break;
                 }
             }
@@ -217,7 +218,6 @@ pub fn handle_control_command(args: &Vec<String>) -> bool {
             // it's a full string arg, so hopefully control/action script file to open and perform...
 
             let filename = arg;
-
             run_kind = ControlType::ActionsScript(filename.to_string());
         }
     }
@@ -258,5 +258,5 @@ pub fn handle_control_command(args: &Vec<String>) -> bool {
         }
     }
 
-    return false;
+    false
 }

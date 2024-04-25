@@ -37,7 +37,7 @@ struct ColumnProperties {
 
 impl ColumnProperties {
     pub fn new() -> ColumnProperties {
-        return ColumnProperties { text_alignment: Alignment::Left, next_border_type: BorderType::None };
+        ColumnProperties { text_alignment: Alignment::Left, next_border_type: BorderType::None }
     }
 }
 
@@ -62,7 +62,7 @@ impl ColumnListPrinter {
                                      column_titles: Vec::with_capacity(0), draw_borders: false,
                                      column_properties: vec![ColumnProperties::new(); num_columns] };
 
-        return new_item;
+        new_item
     }
 
     // pub fn set_alignment(mut self, column: usize, alignment: Alignment) -> Self {
@@ -74,7 +74,7 @@ impl ColumnListPrinter {
         for col in columns {
             self.column_properties[*col].text_alignment = alignment;
         }
-        return self;
+        self
     }
 
     pub fn add_titles<T>(mut self, titles: T) -> Self
@@ -86,7 +86,7 @@ impl ColumnListPrinter {
         for title in titles.into_iter() {
             self.column_titles.push(title.as_ref().to_string());
         }
-        return self;
+        self
     }
 
     pub fn add_row_strings(&mut self, vals: &[&str]) {
@@ -194,7 +194,7 @@ impl ColumnListPrinter {
             final_result.push('\n');
         }
 
-        return final_result;
+        final_result
     }
 }
 

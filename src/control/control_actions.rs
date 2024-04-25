@@ -19,7 +19,6 @@ use std::fmt;
 use std::io::{BufReader, Read};
 use std::path::Path;
 
-use serde_json::Value;
 use yaml_rust::{Yaml, YamlLoader};
 
 use crate::common::FileLoadError;
@@ -192,7 +191,7 @@ impl ControlActions {
                         
                         if let yaml_rust::Yaml::Hash(ref hash) = doc {
 
-                            let auth_params = process_auth_yaml_items(&hash);
+                            let auth_params = process_auth_yaml_items(hash);
                             if auth_params.is_none() {
                                 // 
                                 eprintln!("Error: couldn't work out auth/user settings for control params");
@@ -240,7 +239,7 @@ impl ControlActions {
                                         }
                                     }
                                     "actions" => {
-                                        control_actions.ingest_control_actions_yaml_items(&value);
+                                        control_actions.ingest_control_actions_yaml_items(value);
                                     },
                                     _ => {}
                                 }
@@ -353,7 +352,7 @@ fn process_auth_yaml_items(map: &yaml_rust::yaml::Hash) -> Option<ControlSession
     let mut auth_type = AuthType::Unknown;
 
     // if we have an 'authType', that takes precedence...
-    let auth_type_param = get_yaml_map_item_as_string(&map, "authType");
+    let auth_type_param = get_yaml_map_item_as_string(map, "authType");
     if let Some(auth_type_param_str) = auth_type_param {
         if "userpass".eq_ignore_ascii_case(&auth_type_param_str) {
             auth_type = AuthType::UserPass; // redundant currently, but...

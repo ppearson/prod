@@ -241,9 +241,9 @@ impl SystemValidation {
 
         // see if it's a tuple in parenthesis first...
         let working_value;
-        if let Some(clipped_val) = value.strip_prefix("(") {
+        if let Some(clipped_val) = value.strip_prefix('(') {
             // assume ther should be a closing ')'
-            if let Some(extracted_val) = clipped_val.strip_suffix(")") {
+            if let Some(extracted_val) = clipped_val.strip_suffix(')') {
                 working_value = extracted_val;
             }
             else {
@@ -265,16 +265,16 @@ impl SystemValidation {
         if let Some((value1, value2)) = working_value.split_once(',') {
             // also trim any whitespace, just to be a bit flexible...
             if !parsed_values.process_value(value1.trim()) {
-                return Err(format!("Invalid SystemValidation string: couldn't interpret string value correctly: '{}'", value1).to_string());
+                return Err(format!("Invalid SystemValidation string: couldn't interpret string value correctly: '{}'", value1));
             }
             if !parsed_values.process_value(value2.trim()) {
-                return Err(format!("Invalid SystemValidation string: couldn't interpret string value correctly: '{}'", value2).to_string());
+                return Err(format!("Invalid SystemValidation string: couldn't interpret string value correctly: '{}'", value2));
             }
         }
         else {
             // otherwise, we only have one value, so try and work out what it is...
             if !parsed_values.process_value(working_value) {
-                return Err(format!("Invalid SystemValidation string: couldn't interpret string value correctly: '{}'", working_value).to_string());
+                return Err(format!("Invalid SystemValidation string: couldn't interpret string value correctly: '{}'", working_value));
             }
         }
 

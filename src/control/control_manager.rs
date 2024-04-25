@@ -16,7 +16,6 @@
 #![allow(dead_code)]
 
 extern crate rpassword;
-use std::result;
 
 use rpassword::read_password;
 
@@ -78,7 +77,7 @@ impl ControlManager {
 
         let username = "peter";
 
-        let control_session_user_auth = ControlSessionUserAuth::UserPass(UserAuthUserPass::new(&username, &password));
+        let control_session_user_auth = ControlSessionUserAuth::UserPass(UserAuthUserPass::new(username, &password));
 
         let session_params = ControlSessionParams::new(&target_host, 22, control_session_user_auth, true);
 

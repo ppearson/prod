@@ -53,7 +53,7 @@ fn extract_edit_line_entry_items<T>(params: &Params, key: &str, fun: &dyn Fn(&BT
     let param = params.get_raw_value(key);
     if let Some(ParamValue::Map(map)) = param {
         // cope with single items inline as map...
-        if let Some(entry) = fun(&map) {
+        if let Some(entry) = fun(map) {
             replace_line_entries.push(entry);
         }
     }
@@ -61,7 +61,7 @@ fn extract_edit_line_entry_items<T>(params: &Params, key: &str, fun: &dyn Fn(&BT
         // cope with multiple items as an array
         for item in array {
             if let ParamValue::Map(map) = item {
-                if let Some(entry) = fun(&map) {
+                if let Some(entry) = fun(map) {
                     replace_line_entries.push(entry);
                 }
             }
@@ -302,7 +302,7 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
         //       and assume params will be set exclusively for each...
 
         for insert_item in &insert_line_items {
-            if item_matches_closure(&insert_item.match_type, &insert_item.match_string, &line) {
+            if item_matches_closure(&insert_item.match_type, &insert_item.match_string, line) {
                 insert_type = match insert_item.position_type {
                     InsertLinePositionType::Above => "A".to_string(),
                     InsertLinePositionType::Below => "B".to_string()
@@ -312,14 +312,14 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
         }
 
         for replace_item in &replace_line_items {
-            if item_matches_closure(&replace_item.match_type, &replace_item.match_string, &line) {
+            if item_matches_closure(&replace_item.match_type, &replace_item.match_string, line) {
                 new_file_contents_lines.push(replace_item.replace_string.clone());
                 have_processed_line = true;
             }
         }
 
         for comment_item in &comment_line_items {
-            if item_matches_closure(&comment_item.match_type, &comment_item.match_string, &line) {
+            if item_matches_closure(&comment_item.match_type, &comment_item.match_string, line) {
                 new_file_contents_lines.push(format!("{}{}", comment_item.comment_char, line));
                 have_processed_line = true;
             }

@@ -28,7 +28,7 @@ pub fn get_system_details(action_provider: &dyn ActionProvider, connection: &mut
 
     let full_command = "lsb_release --id --release";
 
-    connection.conn.send_command(&action_provider.post_process_command(&full_command));
+    connection.conn.send_command(&action_provider.post_process_command(full_command));
 
     if connection.conn.get_previous_stdout_response().is_empty() {
         // stdout output was empty, which isn't expected...
@@ -270,7 +270,7 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
     }
     else if swap_file_lines.len() > 1 {
         for data_line in swap_file_lines.iter().skip(1) {
-            let data_items: Vec<&str> = data_line.split_ascii_whitespace().into_iter().collect();
+            let data_items: Vec<&str> = data_line.split_ascii_whitespace().collect();
             let swapfile_name = data_items[0].to_string();
 
             if swapfile_name == filename || filename == "*" {
