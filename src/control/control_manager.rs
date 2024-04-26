@@ -107,7 +107,7 @@ impl ControlManager {
         // TODO: come up with a better way of handling this partial initialisation / ordering dilema to work
         //       out if a provider exists before querying for usernames and passwords...
         let mut session_params = ControlSessionParams::new("",
-                                                           22,
+                                                           actions.port.unwrap_or(22),
                                                            actions.auth.clone(), true);
 
         // temp creation to check it exists as a provider name...
@@ -143,6 +143,10 @@ impl ControlManager {
                 }
 
                 hostname = tmp_hostname;
+            }
+
+            if port.is_none() {
+                port = actions.port;
             }
 
             asked_for_hostname = true;

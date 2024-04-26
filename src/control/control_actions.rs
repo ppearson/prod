@@ -211,11 +211,21 @@ impl ControlActions {
                                         control_actions.hostname = value.as_str().unwrap().to_string();
                                     },
                                     "port" => {
-                                        // TODO: this isn't going to work as the Yaml:: value won't be a string...
-                                        control_actions.port = Some(value.as_str().unwrap().parse::<u32>().unwrap());
+                                        match value.clone() {
+                                            Yaml::Integer(val) => {
+                                                control_actions.port = Some(val as u32);
+                                            },
+                                            _ => {
+                                                eprintln!("Error parsing 'port' param as a string: input YAML value was of an unexpected type.");
+                                                return Err(FileLoadError::CustomError("Error loading file.".to_string()));
+                                            }
+                                        }
                                     },
                                     "systemValidation" => {
-                                        // for "convenience", we allow different things, so parse it as a string...
+                                        // For "convenience", we allow different things, so parse it into a string,
+                                        // but note that in Yaml its type could be a string or an integer...
+                                        // TODO: Supporting things like "20.04" without being quoted in YAML might get annoying...
+                                        //       I'd assume it'd likely be interpreted by YAML as a Read/float, and loose the leading '0' ?
                                         let value_as_string = match value.clone() {
                                             Yaml::String(val) => {
                                                 val.clone()
