@@ -17,20 +17,26 @@ serde_json = { version = "1.0.*", optional = true }
 
 # control items
 ssh2 = { version = "0.9", optional = true }
-ssh-rs = { version = "0.4.2", optional = true, features = ["scp"] }
+ssh-rs = { version = "0.5.0", optional = true, features = ["scp"] }
 temp-file = { version = "0.1.8", optional = true }
 rpassword = { version = "5.0", optional = true }
+
 
 [features]
 # TODO: add support at the code level for conditional enabling of provision/control parts of prod
 provision = ["ureq", "serde", "serde_json"]
-control = ["rpassword"]
+control = ["remote", "rpassword"]
 
+# actual remote crates used indirectly via 'control'...
 openssh = ["ssh2"]
 sshrs = ["ssh-rs", "temp-file"]
 
-#default = ["openssh",
-default = ["sshrs",
+# dependencies for 'control'...
+# Select one of these...
+#remote = ["openssh"]
+remote = ["sshrs"]
+
+default = [
     "control",
     "provision"
-    ]
+]
