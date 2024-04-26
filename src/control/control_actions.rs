@@ -225,7 +225,7 @@ impl ControlActions {
                                         // For "convenience", we allow different things, so parse it into a string,
                                         // but note that in Yaml its type could be a string or an integer...
                                         // TODO: Supporting things like "20.04" without being quoted in YAML might get annoying...
-                                        //       I'd assume it'd likely be interpreted by YAML as a Read/float, and loose the leading '0' ?
+                                        //       I'd assume it'd likely be interpreted by YAML as a Real/float, and loose the leading '0' ?
                                         let value_as_string = match value.clone() {
                                             Yaml::String(val) => {
                                                 val.clone()
