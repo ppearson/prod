@@ -276,11 +276,13 @@ impl ControlManager {
             }
         }
 
-        eprintln!("Connected successfully...");
+        eprintln!("Connected successfully.");
 
         // see if we need to validate the system details against constraints
         // (i.e. to check it's say "Debian" >= 12)
         if actions.system_validation.needs_checking() {
+            eprintln!("Performing required System validation...");
+
             // we need to validate something, so ask the provider for details
             let system_details = provider.get_system_details(&mut connection);
             // TODO: handle error value more correctly (currently inner implementations of get_system_details() eprintln())...
@@ -297,6 +299,8 @@ impl ControlManager {
                 }
                 // otherwise the check passed, so we can just continue...
             }
+
+            eprintln!("System validation was successful.");
         }
 
 /*
@@ -404,7 +408,7 @@ impl ControlManager {
         }
 
         if success {
-            eprintln!("Successfully ran actions.");
+            eprintln!("Successfully ran {}.", if num_actions == 1 {"action"} else {"actions"});
         }
     }
 }
