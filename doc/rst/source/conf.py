@@ -18,11 +18,11 @@
 # -- Project information -----------------------------------------------------
 
 project = 'Prod'
-copyright = '2021, Peter Pearson'
+copyright = '2021-2024, Peter Pearson'
 author = 'Peter Pearson'
 
 # The full version, including alpha/beta/rc tags
-release = '0.1'
+release = '0.3'
 
 
 # -- General configuration ---------------------------------------------------

@@ -1,11 +1,11 @@
 
-Provision
-=========
+Provisioning
+============
 
 Introduction
 ------------
 
-Provision is the process of creating or modifying resources: in Prod's case, this generally means VPS cloud servers from
+Provisioning is the process of creating or modifying resources: in Prod's case, this generally means VPS cloud servers from
 providers such as Vultr, Linode, Binary Lane or Digital Ocean.
 
 .. toctree::

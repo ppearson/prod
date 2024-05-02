@@ -9,9 +9,9 @@ partially intended as a vehicle to learn the Rust programming language with a ne
 about HTTP web services from VPS providers, although also to scratch an itch of making my own basic version of
 a VPS provisioning and configuration tool, approximating some functionality of tools like Terraform and Ansible.
 
-Prod's current functionality includes limited support for provisioning cloud VPS instances (with several providers
-supported to a limited degree), as well as support for controlling the servers (running commands to configure them)
-afterwards, based off text / YAML scripts describing properties of what is desired.
+Prod's current functionality includes limited support for Provisioning cloud VPS instances (with several providers
+supported to a limited degree), as well as support for Controlling the servers (running commands on them to configure them)
+afterwards, based off YAML scripts describing actions and properties of what is desired.
 
 It's still very much work-in-progress, although it is functional to a basic degree.
 

@@ -12,7 +12,7 @@ tool, approximating some functionality of tools like Terraform and Ansible.
 
 Prod's current functionality includes limited support for :doc:`provisioning/index` cloud VPS instances (with several providers supported
 to a limited degree), as well as support for :doc:`controlling/index` the servers (running commands to configure them) afterwards,
-based off text / YAML scripts describing properties of what is desired.
+based off YAML scripts describing actions and properties of what is desired.
 
 .. toctree::
    :maxdepth: 2
