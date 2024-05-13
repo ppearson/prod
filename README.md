@@ -108,18 +108,18 @@ config and jail files, edits the local copy, starts the fail2ban service, and th
         backup: false
         filepath: "/etc/fail2ban/jail.local"
         insertLine:
-        position: below
-        matchString: '[sshd]'
-        insertString: 'enabled: true'
-        matchType: startsWith
-        onceOnly: true
-        reportFailure: false
+         position: below
+         matchString: '[sshd]'
+         insertString: 'enabled: true'
+         matchType: startsWith
+         onceOnly: true
+         reportFailure: false
         replaceLine:
-        matchString: 'bantime  = 10m'
-        replaceString: 'bantime  = 120m'
-        matchType: startsWith
-        onceOnly: true
-        reportFailure: false
+         matchString: 'bantime  = 10m'
+         replaceString: 'bantime  = 120m'
+         matchType: startsWith
+         onceOnly: true
+         reportFailure: false
     - systemCtl:
         service: "fail2ban"
         action: start
