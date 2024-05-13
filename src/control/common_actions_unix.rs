@@ -211,8 +211,7 @@ pub fn download_file(action_provider: &dyn ActionProvider, connection: &mut Cont
     // see if we should also extract it
     if let Some(extract_dir) = action.params.get_string_value("extractDir") {
         // check this directory actually exists...
-        if !extract_dir.is_empty()
-        {
+        if !extract_dir.is_empty() {
             let test_cmd = format!("test -d {} && echo \"yep\"", extract_dir);
             connection.conn.send_command(&action_provider.post_process_command(&test_cmd));
 
@@ -224,9 +223,17 @@ pub fn download_file(action_provider: &dyn ActionProvider, connection: &mut Cont
 
             // TODO: and check permissions?
 
-            // now attempt to extract the file
-            let tar_cmd = format!("tar -xf {} -C {}", dest_path, extract_dir);
-            connection.conn.send_command(&action_provider.post_process_command(&tar_cmd));
+            // now attempt to extract the file, by attempting to work out the filename
+            if dest_path.ends_with(".zip") {
+                // assume it's a .zip file...
+                let zip_cmd = format!("unzip {} -d {}", dest_path, extract_dir);
+                connection.conn.send_command(&action_provider.post_process_command(&zip_cmd));
+            }
+            else {
+                // otherwise, assume it's some form of tar file...
+                let tar_cmd = format!("tar -xf {} -C {}", dest_path, extract_dir);
+                connection.conn.send_command(&action_provider.post_process_command(&tar_cmd));
+            }
         }
     }
 
@@ -285,9 +292,17 @@ pub fn transmit_file(action_provider: &dyn ActionProvider, connection: &mut Cont
 
             // TODO: and check permissions?
 
-            // now attempt to extract the file
-            let tar_cmd = format!("tar -xf {} -C {}", dest_path, extract_dir);
-            connection.conn.send_command(&action_provider.post_process_command(&tar_cmd));
+            // now attempt to extract the file, by attempting to work out the filename
+            if dest_path.ends_with(".zip") {
+                // assume it's a .zip file...
+                let zip_cmd = format!("unzip {} -d {}", dest_path, extract_dir);
+                connection.conn.send_command(&action_provider.post_process_command(&zip_cmd));
+            }
+            else {
+                // otherwise, assume it's some form of tar file...
+                let tar_cmd = format!("tar -xf {} -C {}", dest_path, extract_dir);
+                connection.conn.send_command(&action_provider.post_process_command(&tar_cmd));
+            }
         }
     }
 
