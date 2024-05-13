@@ -319,6 +319,9 @@ impl ControlManager {
             //       Although it's not clear how to easily do that (see above attempt), or if
             //       there's actually a benefit to doing it that way...
 
+            // verbosely print the action we're running...
+            eprintln!(" Running Action {}: {}...", count + 1, action.action);
+
             let result = match action.action {
                 ControlActionType::GenericCommand => {
                     provider.generic_command(&mut connection, action)
@@ -378,6 +381,10 @@ impl ControlManager {
                    ActionResult::Failed("Invalid Action Type".to_string())
                 }
             };
+
+            // TODO: would be nice to be able to pre-perform these NotImplemented and InvalidParams checks on all the actions reliably
+            //       before we start running any of them...
+
 
             if result == ActionResult::NotImplemented {
                 eprintln!("Error running action index {} : {} - the action provider does not implement this action...",
