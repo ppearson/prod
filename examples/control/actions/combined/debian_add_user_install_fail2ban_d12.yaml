@@ -2,6 +2,8 @@
  provider: linux_debian
  host: $PROMPT
  user: root
+ # Make sure we're running on Debian 12 or later (with systemd logging)
+ systemValidation: ">=12"
  actions:
  - addUser:
     username: newUser
@@ -38,15 +40,16 @@
       matchType: startsWith
       onceOnly: true
       reportFailure: false
+    replaceLine:
+      matchString: 'backend = auto'
+      replaceString: 'backend = systemd'
+      matchType: startsWith
+      onceOnly: true
+      reportFailure: false
  - systemCtl:
     service: "fail2ban"
     action: start
  - systemCtl:
     service: "fail2ban"
     action: restart
- - firewall:
-    type: ufw
-    enabled: true
-    rules:
-      - "allow 80/tcp"
 

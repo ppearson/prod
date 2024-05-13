@@ -1,0 +1,49 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: root
+ # Make sure we're NOT running on Debian 12 or later (so without systemd logging)
+ systemValidation: <12
+ actions:
+ - addUser:
+    username: newUser
+    password: ChangeThisPassword
+    createHome: true
+    shell: /bin/bash
+    groups:
+      - sudo
+ - installPackages:
+    packages:
+      - "fail2ban"
+ - systemCtl:
+    service: "fail2ban"
+    action: stop
+ - copyPath:
+    sourcePath: /etc/fail2ban/fail2ban.conf
+    destPath: /etc/fail2ban/fail2ban.local
+ - copyPath:
+    sourcePath: /etc/fail2ban/jail.conf
+    destPath: /etc/fail2ban/jail.local
+ - editFile:
+    backup: false
+    filepath: "/etc/fail2ban/jail.local"
+    insertLine:
+      position: below
+      matchString: '[sshd]'
+      insertString: 'enabled: true'
+      matchType: startsWith
+      onceOnly: true
+      reportFailure: false
+    replaceLine:
+      matchString: 'bantime  = 10m'
+      replaceString: 'bantime  = 120m'
+      matchType: startsWith
+      onceOnly: true
+      reportFailure: false
+ - systemCtl:
+    service: "fail2ban"
+    action: start
+ - systemCtl:
+    service: "fail2ban"
+    action: restart
+

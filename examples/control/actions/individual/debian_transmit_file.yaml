@@ -6,4 +6,5 @@
  - transmitFile:
     localSourcePath: /home/peter/render1.png
     remoteDestPath: /home/peter/test_transmit11.png
-
+    owner: peter
+ 
