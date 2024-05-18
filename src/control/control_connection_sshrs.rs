@@ -52,19 +52,32 @@ impl ControlConnectionSshRs {
         self.prev_std_err = String::new();
         
         let exec = self.local_session.open_exec();
-        if let Err(err) = exec {
+        if let Err(_err) = exec {
+            // TODO: error...
+            //   But what?
+            return;
+        }
+
+        let mut exec = exec.unwrap();
+        let result = exec.exec_command(command);
+        if let Err(_err) = result {
             // TODO: error...
             return;
         }
 
-        let exec = exec.unwrap();
-        let result = exec.send_command(command);
-        if let Err(err) = result {
-            return;
+        // Note: this is needed here for result processing and for exit_status state to be valid...
+        let vec: Vec<u8> = exec.get_output().unwrap();
+
+        if let Ok(exit_code) = exec.exit_status() {
+            self.exit_code = Some(exit_code as i32);
         }
-        // Note: this is stdout only...
-        let vec: Vec<u8> = result.unwrap();
+        // Note: the output from an ssh-rs exec.send_command() call is not separated into stdout/stderr,
+        //       so we have no way of easily identifying if there was an error or not via the stdout/stderr output...
+        
         self.prev_std_out = String::from_utf8(vec).unwrap();
+        if self.prev_std_out.is_empty() {
+
+        }
     }
 
     fn send_command_shell(&mut self, _command: &str) {
@@ -74,7 +87,6 @@ impl ControlConnectionSshRs {
     pub fn get_text_file_contents_via_scp(&mut self, filepath: &str) -> Result<String, RemoteFileContentsControlError> {
         let scp = self.local_session.open_scp();
         if let Err(err) = scp {
-            // TODO:
             return Err(RemoteFileContentsControlError::CantConnect(err.to_string()));
         }
         let scp = scp.unwrap();
@@ -106,7 +118,6 @@ impl ControlConnectionSshRs {
     pub fn send_text_file_contents_via_scp(&mut self, filepath: &str, _mode: i32, contents: &str) -> Result<(), RemoteFileContentsControlError> {
         let scp = self.local_session.open_scp();
         if let Err(err) = scp {
-            // TODO:
             return Err(RemoteFileContentsControlError::CantConnect(err.to_string()));
         }
         let scp = scp.unwrap();

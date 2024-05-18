@@ -14,6 +14,8 @@
 */
 #![allow(dead_code)]
 
+use super::control_actions::ControlAction;
+
 #[derive(Clone, Debug)]
 pub enum RemoteFileContentsControlError {
     NotImplemented,
@@ -50,6 +52,22 @@ pub trait ControlConnection {
 
     fn did_exit_with_error_code(&self) -> bool {
         return false;
+    }
+
+    // helper to return a generic error string when a remote command returns an error exit_code, including the command run,
+    // and any stderr output if that is found (the ssh-rs backend doesn't support extracting stderr output vs stdout).
+    fn return_failed_command_error_response_str(&self, command_string: &str, control_action: &ControlAction) -> String {
+        // if there's an stderr response, also include that
+        if let Some(std_err_response) = self.get_previous_stderr_response() {
+            return format!("Unexpected error exit code after running command: '{}' within control method: '{}', with stderr response: {}", command_string,
+                            control_action.action, std_err_response);
+        }
+        else {
+            // we don't have any stderr response (either because there wasn't any, or the control connection
+            // backend didn't support getting it, i.e. ssh-rs backend)
+            return format!("Unexpected error exit code after running command: '{}' within control method: '{}'.", command_string,
+                            control_action.action);
+        }
     }
 
     fn get_text_file_contents(&mut self, _filepath: &str) -> Result<String, RemoteFileContentsControlError> {

@@ -231,7 +231,7 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
         let mv_command = format!("cp {0} {0}.bak", filepath);
         connection.conn.send_command(&action_provider.post_process_command(&mv_command));
         if let Some(strerr) = connection.conn.get_previous_stderr_response() {
-            return ActionResult::Failed(format!("Error making backup copy of remote file path: {}", strerr));
+            return ActionResult::FailedOther(format!("Error making backup copy of remote file path: {}", strerr));
         }
     }
 
@@ -240,7 +240,7 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
     let stat_command = format!("stat {}", filepath);
     connection.conn.send_command(&action_provider.post_process_command(&stat_command));
     if let Some(strerr) = connection.conn.get_previous_stderr_response() {
-        return ActionResult::Failed(format!("Error accessing remote file path: {}", strerr));
+        return ActionResult::FailedOther(format!("Error accessing remote file path: {}", strerr));
     }
 
     let stat_response = connection.conn.get_previous_stdout_response().to_string();
@@ -251,7 +251,7 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
     let string_contents = connection.conn.get_text_file_contents(&filepath).unwrap();
     if string_contents.is_empty() {
         eprintln!("Error: remote file: {} has empty contents.", filepath);
-        return ActionResult::Failed("".to_string());
+        return ActionResult::FailedOther("".to_string());
     }
     let file_contents_lines = string_contents.lines();
 
@@ -351,7 +351,7 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
     
     let send_res = connection.conn.send_text_file_contents(&filepath, mode, &new_file_contents_string);
     if send_res.is_err() {
-        return ActionResult::Failed("".to_string());
+        return ActionResult::FailedOther("Failed to send file contents back to host".to_string());
     }
 
     // TODO: change user and group of file to cached value from beforehand...

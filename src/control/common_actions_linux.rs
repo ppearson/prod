@@ -97,7 +97,7 @@ pub fn add_user(action_provider: &dyn ActionProvider, connection: &mut ControlSe
 
     // check response is nothing...
     if connection.conn.had_command_response() {
-        return ActionResult::Failed("Unexpected response from useradd command.".to_string());
+        return ActionResult::FailedCommand("Unexpected response from useradd command.".to_string());
     }
 
     // double make sure we don't add command to history here, even though post_process_command() should do it
@@ -127,7 +127,7 @@ pub fn add_user(action_provider: &dyn ActionProvider, connection: &mut ControlSe
     if check_no_response {
     // check response is nothing...
         if connection.conn.had_command_response() {
-            return ActionResult::Failed(format!("Unexpected response from usermod command: {}", connection.conn.get_previous_stderr_response().unwrap_or("")));
+            return ActionResult::FailedCommand(format!("Unexpected response from usermod command: {}", connection.conn.get_previous_stderr_response().unwrap_or("")));
         }
     }
 
@@ -141,15 +141,15 @@ pub fn systemctrl(action_provider: &dyn ActionProvider, connection: &mut Control
     }
 
     let service = action.params.get_string_value("service").unwrap();
-    let action = action.params.get_string_value("action").unwrap();
+    let service_action = action.params.get_string_value("action").unwrap();
 
-    let systemctrl_command = format!("systemctl {} {}", action, service);
+    let systemctrl_command = format!("systemctl {} {}", service_action, service);
     
     connection.conn.send_command(&action_provider.post_process_command(&systemctrl_command));
 
     if connection.conn.did_exit_with_error_code() {
-        return ActionResult::Failed(format!("Unexpected response from '{}' command: {}", systemctrl_command,
-                connection.conn.get_previous_stderr_response().unwrap_or("")));
+        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&systemctrl_command,
+            action));
     }
 
     return ActionResult::Success;
@@ -173,8 +173,8 @@ pub fn firewall(action_provider: &dyn ActionProvider, connection: &mut ControlSe
                 connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
 
                 if connection.conn.did_exit_with_error_code() {
-                    return ActionResult::Failed(format!("Unexpected response from '{}' command: {}", ufw_command,
-                         connection.conn.get_previous_stderr_response().unwrap_or("")));
+                    return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&ufw_command,
+                        action));
                 }
             }
         }
@@ -185,8 +185,8 @@ pub fn firewall(action_provider: &dyn ActionProvider, connection: &mut ControlSe
             connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
 
             if connection.conn.did_exit_with_error_code() {
-                return ActionResult::Failed(format!("Unexpected response from '{}' command: {}", ufw_command,
-                        connection.conn.get_previous_stderr_response().unwrap_or("")));
+                return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&ufw_command,
+                    action));
             }
         }
 
@@ -197,8 +197,8 @@ pub fn firewall(action_provider: &dyn ActionProvider, connection: &mut ControlSe
                 connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
 
                 if connection.conn.did_exit_with_error_code() {
-                    return ActionResult::Failed(format!("Unexpected response from '{}' command: {}", ufw_command,
-                            connection.conn.get_previous_stderr_response().unwrap_or("")));
+                    return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&ufw_command,
+                        action));
                 }
             }
         }
@@ -223,9 +223,9 @@ pub fn set_time_zone(action_provider: &dyn ActionProvider, connection: &mut Cont
     let timedatectl_command = format!("timedatectl {}", time_zone);
     connection.conn.send_command(&action_provider.post_process_command(&timedatectl_command));
 
-    if let Some(str) = connection.conn.get_previous_stderr_response() {
-        eprintln!("set_time_zone error: {}", str);
-        return ActionResult::Failed(str.to_string());
+    if connection.conn.did_exit_with_error_code() {
+        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&timedatectl_command,
+            action));
     }
 
     // TODO: also restart things like crond that might have been affected?
@@ -249,14 +249,14 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
 
     if let Some(str) = connection.conn.get_previous_stderr_response() {
         eprintln!("disable_swap error: {}", str);
-        return ActionResult::Failed(str.to_string());
+        return ActionResult::FailedCommand(str.to_string());
     }
 
     // if there is already a swapfile configured, the stdout output should be more than one line...
     if connection.conn.get_previous_stdout_response().is_empty() {
         // stdout output was empty, which isn't expected...
         eprintln!("disable_swap error with unexpected response");
-        return ActionResult::Failed("".to_string());
+        return ActionResult::FailedCommand("".to_string());
     }
 
     let mut swapfile_names_to_delete = Vec::with_capacity(1);
@@ -281,12 +281,12 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
     else {
         // Not really sure how we'd reach here unless the response was malformed...
         eprintln!("disable_swap error with unexpected response2");
-        return ActionResult::Failed("".to_string());
+        return ActionResult::FailedCommand("".to_string());
     }
 
     if swapfile_names_to_delete.is_empty() {
         eprintln!("disable_swap error: couldn't find specified swapfile to disable / delete.");
-        return ActionResult::Failed("".to_string());
+        return ActionResult::FailedCommand("".to_string());
     }
 
     if filename == "*" {
@@ -294,9 +294,9 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
         let swapoff_command = "swapoff -a".to_string();
         connection.conn.send_command(&action_provider.post_process_command(&swapoff_command));
 
-        if let Some(str) = connection.conn.get_previous_stderr_response() {
-            eprintln!("disable_swap error - swapoff command failed: {}", str);
-            return ActionResult::Failed(str.to_string());
+        if connection.conn.did_exit_with_error_code() {
+            return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&swapoff_command,
+                action));
         }
     }
     else {
@@ -307,9 +307,9 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
 
         connection.conn.send_command(&action_provider.post_process_command(&swapoff_command));
 
-        if let Some(str) = connection.conn.get_previous_stderr_response() {
-            eprintln!("disable_swap error - swapoff command failed: {}", str);
-            return ActionResult::Failed(str.to_string());
+        if connection.conn.did_exit_with_error_code() {
+            return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&swapoff_command,
+                action));
         }
     }
     
@@ -321,7 +321,7 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
     let fstab_string_contents = connection.conn.get_text_file_contents(FSTAB_FILE_PATH).unwrap();
     if fstab_string_contents.is_empty() {
         eprintln!("Error: /etc/fstab remote file has empty contents.");
-        return ActionResult::Failed("".to_string());
+        return ActionResult::FailedCommand("".to_string());
     }
     let fstab_contents_lines = fstab_string_contents.lines();
 
@@ -350,7 +350,7 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
     let stat_command = format!("stat {}", FSTAB_FILE_PATH);
     connection.conn.send_command(&action_provider.post_process_command(&stat_command));
     if let Some(strerr) = connection.conn.get_previous_stderr_response() {
-        return ActionResult::Failed(format!("Error accessing remote fstab path: {}", strerr));
+        return ActionResult::FailedOther(format!("Error accessing remote fstab path: {}", strerr));
     }
 
     let stat_response = connection.conn.get_previous_stdout_response().to_string();
@@ -368,7 +368,7 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
 
     let send_res = connection.conn.send_text_file_contents(FSTAB_FILE_PATH, mode, &new_file_contents_string);
     if send_res.is_err() {
-        return ActionResult::Failed("Error: failed to write modified /etc/fstab file.".to_string());
+        return ActionResult::FailedOther("Error: failed to write modified /etc/fstab file.".to_string());
     }
 
     // now delete any of the swapfiles...
@@ -377,7 +377,7 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
         let rm_command = format!("rm {}", swap_file);
         connection.conn.send_command(&action_provider.post_process_command(&rm_command));
         if let Some(strerr) = connection.conn.get_previous_stderr_response() {
-            return ActionResult::Failed(format!("Error deleting swapfile file: {}", strerr));
+            return ActionResult::FailedCommand(format!("Error deleting swapfile file: {}", strerr));
         }
     }
     

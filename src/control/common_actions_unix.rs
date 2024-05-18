@@ -30,7 +30,13 @@ pub fn generic_command(action_provider: &dyn ActionProvider, connection: &mut Co
 
     if action.params.get_value_as_bool("errorIfStdErrOutputExists", false) {
         if let Some(strerr) = connection.conn.get_previous_stderr_response() {
-            return ActionResult::Failed(format!("genericCommand action failed due to unexpected stderr output: {}", strerr));
+            return ActionResult::FailedCommand(format!("genericCommand action failed due to unexpected stderr output: {}", strerr));
+        }
+    }
+
+    if action.params.get_value_as_bool("errorIfNone0ExitCode", false) {
+        if connection.conn.did_exit_with_error_code() {
+            return ActionResult::FailedCommand(format!("genericCommand action failed due to none-0 exit code."));
         }
     }
 
@@ -61,8 +67,10 @@ pub fn create_directory(action_provider: &dyn ActionProvider, connection: &mut C
         mkdir_command = format!("mkdir -p {}", path_to_create);
     }
     connection.conn.send_command(&action_provider.post_process_command(&mkdir_command));
-    if let Some(strerr) = connection.conn.get_previous_stderr_response() {
-        return ActionResult::Failed(format!("Failed to create directory: Err: {}", strerr));
+
+    if connection.conn.did_exit_with_error_code() {
+        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&mkdir_command,
+            action));
     }
 
     if let Some(permissions) = action.params.get_string_or_int_value_as_string("permissions") {
@@ -106,10 +114,9 @@ pub fn remove_directory(action_provider: &dyn ActionProvider, connection: &mut C
     let ignore_failure = action.params.get_value_as_bool("ignoreFailure", false);
 
     connection.conn.send_command(&action_provider.post_process_command(&rmdir_command));
-    if let Some(strerr) = connection.conn.get_previous_stderr_response() {
-        if !ignore_failure {
-            return ActionResult::Failed(format!("Failed to remove directory: Err: {}", strerr));
-        }
+    if connection.conn.did_exit_with_error_code() && !ignore_failure {
+        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&rmdir_command,
+            action));
     }
 
     return ActionResult::Success;
@@ -148,8 +155,8 @@ pub fn copy_path(action_provider: &dyn ActionProvider, connection: &mut ControlS
     connection.conn.send_command(&action_provider.post_process_command(&cp_command));
 
     if connection.conn.did_exit_with_error_code() {
-        return ActionResult::Failed(format!("Unexpected response from '{}' command: {}", cp_command,
-                connection.conn.get_previous_stderr_response().unwrap_or("")));
+        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&cp_command,
+            action));
     }
 
     return ActionResult::Success;
@@ -167,10 +174,9 @@ pub fn remove_file(action_provider: &dyn ActionProvider, connection: &mut Contro
     let ignore_failure = action.params.get_value_as_bool("ignoreFailure", false);
 
     connection.conn.send_command(&action_provider.post_process_command(&rm_command));
-    if let Some(strerr) = connection.conn.get_previous_stderr_response() {
-        if !ignore_failure {
-            return ActionResult::Failed(format!("Failed to remove file: Err: {}", strerr));
-        }
+    if connection.conn.did_exit_with_error_code() && !ignore_failure {
+        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&rm_command,
+            action));
     }
 
     return ActionResult::Success;
@@ -218,7 +224,7 @@ pub fn download_file(action_provider: &dyn ActionProvider, connection: &mut Cont
             // check the output is "yep"
             if connection.conn.get_previous_stdout_response().is_empty() {
                 // doesn't exist...
-                return ActionResult::Failed(format!("The 'extractDir' parameter directory: '{}' does not exist.", extract_dir));
+                return ActionResult::FailedOther(format!("The 'extractDir' parameter directory: '{}' does not exist.", extract_dir));
             }
 
             // TODO: and check permissions?
@@ -263,7 +269,7 @@ pub fn transmit_file(action_provider: &dyn ActionProvider, connection: &mut Cont
 
     let send_res = connection.conn.send_file(&source_path, &dest_path, mode);
     if send_res.is_err() {
-        return ActionResult::Failed("".to_string());
+        return ActionResult::FailedOther("Failed to send file to host".to_string());
     }
 
     if let Some(owner) = action.params.get_string_value("owner") {
@@ -287,7 +293,7 @@ pub fn transmit_file(action_provider: &dyn ActionProvider, connection: &mut Cont
             // check the output is "yep"
             if connection.conn.get_previous_stdout_response().is_empty() {
                 // doesn't exist...
-                return ActionResult::Failed(format!("The 'extractDir' parameter directory: '{}' does not exist.", extract_dir));
+                return ActionResult::FailedOther(format!("The 'extractDir' parameter directory: '{}' does not exist.", extract_dir));
             }
 
             // TODO: and check permissions?
@@ -303,6 +309,8 @@ pub fn transmit_file(action_provider: &dyn ActionProvider, connection: &mut Cont
                 let tar_cmd = format!("tar -xf {} -C {}", dest_path, extract_dir);
                 connection.conn.send_command(&action_provider.post_process_command(&tar_cmd));
             }
+
+            // TODO: validate that extraction worked.
         }
     }
 
@@ -327,7 +335,7 @@ pub fn receive_file(_action_provider: &dyn ActionProvider, connection: &mut Cont
 
     let send_res = connection.conn.receive_file(&source_path, &dest_path);
     if send_res.is_err() {
-        return ActionResult::Failed("".to_string());
+        return ActionResult::FailedOther("Failed to receive file from host".to_string());
     }
 
     return ActionResult::Success;
@@ -349,9 +357,9 @@ pub fn create_symlink(action_provider: &dyn ActionProvider, connection: &mut Con
     let ln_command = format!("ln -s {} {}", target_path, link_path);
     connection.conn.send_command(&action_provider.post_process_command(&ln_command));
 
-    if let Some(str) = connection.conn.get_previous_stderr_response() {
-        eprintln!("create_symlink error: {}", str);
-        return ActionResult::Failed(str.to_string());
+    if connection.conn.did_exit_with_error_code() {
+        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&ln_command,
+            action));
     }
 
     return ActionResult::Success;
@@ -372,7 +380,7 @@ pub fn create_file(action_provider: &dyn ActionProvider, connection: &mut Contro
         // send the content as a file to write
         let send_res = connection.conn.send_text_file_contents(&path_to_create, 0o644, &content);
         if send_res.is_err() {
-            return ActionResult::Failed("Failed to send text file contents to create file.".to_string());
+            return ActionResult::FailedOther("Failed to send text file contents to create file.".to_string());
         }
     }
     else {
@@ -380,7 +388,7 @@ pub fn create_file(action_provider: &dyn ActionProvider, connection: &mut Contro
         let touch_command = format!("touch {}", path_to_create);
         connection.conn.send_command(&action_provider.post_process_command(&touch_command));
         if let Some(strerr) = connection.conn.get_previous_stderr_response() {
-            return ActionResult::Failed(format!("Failed to create file: Err: {}", strerr));
+            return ActionResult::FailedOther(format!("Failed to create file: Err: {}", strerr));
         }
     }
 

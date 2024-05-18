@@ -378,7 +378,7 @@ impl ControlManager {
                     provider.create_file(&mut connection, action)
                 },
                 ControlActionType::NotSet | ControlActionType::Unrecognised => {
-                   ActionResult::Failed("Invalid Action Type".to_string())
+                   ActionResult::FailedOther("Invalid Action Type".to_string())
                 }
             };
 
@@ -400,7 +400,14 @@ impl ControlManager {
                 break;
             }
 
-            if let ActionResult::Failed(str) = result {
+            if let ActionResult::FailedCommand(str) = result {
+                eprintln!("Error running action index {} : {} - {}",
+                            count, action.action, str);
+                success = false;
+                break;
+            }
+
+            if let ActionResult::FailedOther(str) = result {
                 eprintln!("Error running action index {} : {} - {}",
                             count, action.action, str);
                 success = false;

@@ -93,9 +93,9 @@ impl ActionProvider for AProviderLinuxFedora {
         let dnf_command = format!("dnf -y install {}", packages_string);
         connection.conn.send_command(&self.post_process_command(&dnf_command));
 
-        if let Some(str) = connection.conn.get_previous_stderr_response() {
-            println!("installPackages error: {}", str);
-            return ActionResult::Failed(str.to_string());
+        if connection.conn.did_exit_with_error_code() {
+            return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&dnf_command,
+                action));
         }
 
         return ActionResult::Success;
@@ -122,9 +122,13 @@ impl ActionProvider for AProviderLinuxFedora {
         let dnf_command = format!("dnf -y remove {}", packages_string);
         connection.conn.send_command(&self.post_process_command(&dnf_command));
 
-        if let Some(str) = connection.conn.get_previous_stderr_response() {
-            println!("removePackages error: {}", str);
-            return ActionResult::Failed(str.to_string());
+        let ignore_failure = action.params.get_value_as_bool("ignoreFailure", false);
+
+        if connection.conn.did_exit_with_error_code() {
+            if !ignore_failure {
+                return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&dnf_command,
+                    action));
+            }
         }
 
         return ActionResult::Success;

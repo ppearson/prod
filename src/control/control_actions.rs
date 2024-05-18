@@ -96,7 +96,8 @@ pub enum ActionResult {
     InvalidParams(String),
     CantConnect,
     AuthenticationIssue,
-    Failed(String),
+    FailedCommand(String),
+    FailedOther(String),
     Success
 }
 
