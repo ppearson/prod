@@ -322,7 +322,7 @@ impl ControlActions {
         };
 
         if new_action.action == ControlActionType::Unrecognised {
-            eprintln!("Error: Unrecognised Control Action: '{}', ignoring.", new_action.action);
+            eprintln!("Error: Unrecognised Control Action: '{}', ignoring.", name);
             return;
         }
 

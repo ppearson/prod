@@ -86,14 +86,12 @@ fn main() {
         // TODO: automatically run it based off detecting what it is...
     }
     else if first_command == "provision" && args.len() >= 3 {
-        if handle_provision_command(&args) {
-            return;
-        }
+        handle_provision_command(&args);
+        return;
     }
     else if first_command == "control" && args.len() >= 3 {
-        if handle_control_command(&args) {
-            return;
-        }
+        handle_control_command(&args);
+        return;
     }
     else if first_command.contains("help") {
         print_help();
@@ -245,10 +243,14 @@ pub fn handle_control_command(args: &[String]) -> bool {
         ControlType::ActionsScript(script_file) => {
             // run the actual script...
 
-            // TODO: error handling...
-            let control_actions = ControlActions::from_file(&script_file).unwrap();
-
-            control_manager.perform_actions(&control_actions, general_params);
+            let file_read_res = ControlActions::from_file(&script_file);
+            if let Ok(control_actions) = file_read_res {
+                control_manager.perform_actions(&control_actions, general_params);
+            }
+            else {
+                eprintln!("Error loading Actions file.");
+                return false;
+            }
 
             return true;
         },

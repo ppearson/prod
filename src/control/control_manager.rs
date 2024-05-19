@@ -101,7 +101,8 @@ impl ControlManager {
 
     pub fn perform_actions(&self, actions: &ControlActions, general_params: ControlGeneralParams) {
         if actions.actions.is_empty() {
-            eprintln!("Error: no actions specified.");
+            eprintln!("Error: no valid actions specified.");
+            return;
         }
 
         // TODO: come up with a better way of handling this partial initialisation / ordering dilema to work
