@@ -81,7 +81,7 @@ impl ActionResultValues {
     }
 
     pub fn has_value(&self, key: &str) -> bool {
-        return self.values.contains_key(key);
+        self.values.contains_key(key)
     }
 
     pub fn get_value(&self, key: &str, default: &str) -> String {
@@ -90,7 +90,7 @@ impl ActionResultValues {
             return str_val.to_string();
         }
         
-        return default.to_string();
+        default.to_string()
     }
 
     pub fn get_value_as_bool(&self, key: &str, default: bool) -> bool {

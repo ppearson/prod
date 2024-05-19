@@ -51,7 +51,7 @@ pub enum CommandResult {
 impl ControlManager {
     pub fn new() -> ControlManager {
         let manager = ControlManager { };
-        return manager;
+        manager
     }
 
     // Not really happy with this, but I can't work out how to nicely self-configure/inspect in a registry,
@@ -64,7 +64,7 @@ impl ControlManager {
             return Some(Box::new(action_provider_linux_fedora::AProviderLinuxFedora::new(session_params)));
         }
 
-        return None;
+        None
     }
 
     pub fn run_command(&self, host: &str, command: &str) -> CommandResult {
@@ -96,7 +96,7 @@ impl ControlManager {
 
         connection.conn.send_command(command);
 
-        return CommandResult::CommandRunOkay(connection.conn.get_previous_stdout_response().to_string());
+        CommandResult::CommandRunOkay(connection.conn.get_previous_stdout_response().to_string())
     }
 
     pub fn perform_actions(&self, actions: &ControlActions, general_params: ControlGeneralParams) {

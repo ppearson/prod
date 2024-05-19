@@ -123,7 +123,7 @@ impl DropletInstanceDetails {
             }
         }
 
-        return None;
+        None
     }
 }
 
@@ -139,21 +139,21 @@ impl ProviderDigitalOcean {
 
 impl ProvisionProvider for ProviderDigitalOcean {
     fn name(&self) -> String {
-        return "digital_ocean".to_string();
+        "digital_ocean".to_string()
     }
 
     fn supports_interactive(&self) -> bool {
-        return true;
+        true
     }
 
     fn prompt_interactive(&self) -> Vec<(String, String)> {
         let mut items = Vec::new();
         items.push(("API_TOKEN".to_string(), "API Token to use Digital Ocean API".to_string()));
-        return items;
+        items
     }
 
     fn configure_interactive(&mut self) -> bool {
-        return false;
+        false
     }
 
     fn configure(&mut self) -> bool {
@@ -172,7 +172,7 @@ impl ProvisionProvider for ProviderDigitalOcean {
     }
 
     fn is_configured(&self) -> bool {
-        return !self.digital_ocean_api_token.is_empty();
+        !self.digital_ocean_api_token.is_empty()
     }
 
     // actual commands
@@ -253,7 +253,7 @@ impl ProvisionProvider for ProviderDigitalOcean {
             println!("{}", resp_string);
         }
         
-        return true;
+        true
     }
 
     fn get_required_params_for_action(&self, action: ProvisionActionType) -> BTreeSet<&str> {
@@ -400,7 +400,7 @@ impl ProvisionProvider for ProviderDigitalOcean {
             try_count += 1;
         }
         
-        return ProvisionActionResult::ActionCreatedInProgress(result_values);
+        ProvisionActionResult::ActionCreatedInProgress(result_values)
     }
 
     fn delete_instance(&self, params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
@@ -454,7 +454,7 @@ impl ProvisionProvider for ProviderDigitalOcean {
         // response should be empty...
         let _resp_string = resp.unwrap().into_string().unwrap();
 
-        return ProvisionActionResult::ActionCreatedInProgress(ActionResultValues::new());
+        ProvisionActionResult::ActionCreatedInProgress(ActionResultValues::new())
     }
 }
 
@@ -480,6 +480,6 @@ impl ProviderDigitalOcean {
         }
         let droplet_details: DropletInstanceDetails = droplet_details.unwrap();
 
-        return Ok(droplet_details);
+        Ok(droplet_details)
     }
 }

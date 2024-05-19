@@ -43,20 +43,20 @@ impl ProviderOpenStack {
 
 impl ProvisionProvider for ProviderOpenStack {
     fn name(&self) -> String {
-        return "openstack".to_string();
+        "openstack".to_string()
     }
 
     fn supports_interactive(&self) -> bool {
-        return false;
+        false
     }
 
     fn prompt_interactive(&self) -> Vec<(String, String)> {
         let items = Vec::new();
-        return items;
+        items
     }
 
     fn configure_interactive(&mut self) -> bool {
-        return false;
+        false
     }
 
     fn configure(&mut self) -> bool {
@@ -87,11 +87,11 @@ impl ProvisionProvider for ProviderOpenStack {
 
         self.openstack_tenant_name = tenant_name.unwrap();
 
-        return true;
+        true
     }
 
     fn is_configured(&self) -> bool {
-        return !self.openstack_endpoint_uri.is_empty();
+        !self.openstack_endpoint_uri.is_empty()
     }
 
     // actual commands
@@ -123,7 +123,7 @@ impl ProvisionProvider for ProviderOpenStack {
 
         println!("{}", resp_string);
         
-        return true;
+        true
     }
 
     fn get_required_params_for_action(&self, action: ProvisionActionType) -> BTreeSet<&str> {
@@ -144,7 +144,7 @@ impl ProvisionProvider for ProviderOpenStack {
         // let image_ref_str = params.get_string_value("imageRef", "");
 
 
-        return ProvisionActionResult::Failed("".to_string());
+        ProvisionActionResult::Failed("".to_string())
     }
 }
 

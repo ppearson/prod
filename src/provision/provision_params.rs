@@ -87,7 +87,7 @@ impl ProvisionParams {
             // TODO:...
         }
 
-        return Err(FileLoadError::CustomError("Unknown file type.".to_string()))
+        Err(FileLoadError::CustomError("Unknown file type.".to_string()))
     }
 
     fn from_file_txt(path: &str) -> Result<ProvisionParams, FileLoadError> {
@@ -123,7 +123,7 @@ impl ProvisionParams {
             provision_params.ingest_param(string_pairs[0], string_pairs[1].trim());
         }
 
-        return Ok(provision_params);
+        Ok(provision_params)
     }
 
     fn ingest_param(&mut self, key: &str, val: &str) {
@@ -170,7 +170,7 @@ impl ProvisionParams {
     }
 
     pub fn has_param(&self, key: &str) -> bool {
-        return self.values.contains_key(key);
+        self.values.contains_key(key)
     }
 
     pub fn get_string_value(&self, key: &str, default: &str) -> String {
@@ -178,7 +178,7 @@ impl ProvisionParams {
             return str.to_string();
         }
         
-        return default.to_string();
+        default.to_string()
     }
 
     pub fn get_string_value_as_bool(&self, key: &str, default: bool) -> bool {
@@ -192,7 +192,7 @@ impl ProvisionParams {
             return val;
         }
         
-        return default;
+        default
     }
 
     pub fn get_string_array(&self, key: &str) -> Option<Vec<String>> {
@@ -206,6 +206,6 @@ impl ProvisionParams {
             return Some(vec![str.to_string()]);
         }
 
-        return None;
+        None
     }
 }

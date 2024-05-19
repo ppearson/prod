@@ -23,45 +23,45 @@ pub trait ProvisionProvider {
 
     // not sure about this one - ideally it'd be static, but...
     fn name(&self) -> String {
-        return "".to_string();
+        "".to_string()
     }
 
     fn supports_interactive(&self) -> bool {
-        return false;
+        false
     }
 
     fn prompt_interactive(&self) -> Vec<(String, String)> {
-        return Vec::new();
+        Vec::new()
     }
 
     fn configure_interactive(&mut self) -> bool {
-        return false;
+        false
     }
 
     fn configure(&mut self) -> bool {
-        return false;
+        false
     }
 
     fn is_configured(&self) -> bool {
-        return false;
+        false
     }
 
     // actual API items
 
     fn list_available(&self, _list_type: ListType) -> bool {
-        return true;
+        true
     }
 
     fn get_required_params_for_action(&self, _action: ProvisionActionType) -> BTreeSet<&str> {
-        return BTreeSet::new();
+        BTreeSet::new()
     }
 
     fn create_instance(&self, _params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
-        return ProvisionActionResult::NotSupported;
+        ProvisionActionResult::NotSupported
     }
 
     fn delete_instance(&self, _params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
-        return ProvisionActionResult::NotSupported;
+        ProvisionActionResult::NotSupported
     }
 
 }

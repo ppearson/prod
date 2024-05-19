@@ -105,21 +105,21 @@ impl ProviderVultr {
 
 impl ProvisionProvider for ProviderVultr {
     fn name(&self) -> String {
-        return "vultr".to_string();
+        "vultr".to_string()
     }
 
     fn supports_interactive(&self) -> bool {
-        return true;
+        true
     }
 
     fn prompt_interactive(&self) -> Vec<(String, String)> {
         let mut items = Vec::new();
         items.push(("API_KEY".to_string(), "API Key to use Vultr".to_string()));
-        return items;
+        items
     }
 
     fn configure_interactive(&mut self) -> bool {
-        return false;
+        false
     }
 
     fn configure(&mut self) -> bool {
@@ -138,7 +138,7 @@ impl ProvisionProvider for ProviderVultr {
     }
 
     fn is_configured(&self) -> bool {
-        return !self.vultr_api_key.is_empty();
+        !self.vultr_api_key.is_empty()
     }
 
     // actual commands
@@ -208,7 +208,7 @@ impl ProvisionProvider for ProviderVultr {
             println!("{}", resp_string);
         }
 
-        return true;
+        true
     }
 
     fn get_required_params_for_action(&self, action: ProvisionActionType) -> BTreeSet<&str> {
@@ -427,7 +427,7 @@ impl ProvisionProvider for ProviderVultr {
         }
         
         // work out what to do here... technically we have an instance, so...
-        return ProvisionActionResult::ActionCreatedInProgress(result_values);
+        ProvisionActionResult::ActionCreatedInProgress(result_values)
     }
 
     fn delete_instance(&self, params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
@@ -479,7 +479,7 @@ impl ProvisionProvider for ProviderVultr {
         // response should be empty...
         let _resp_string = resp.unwrap().into_string().unwrap();
 
-        return ProvisionActionResult::ActionCreatedInProgress(ActionResultValues::new());
+        ProvisionActionResult::ActionCreatedInProgress(ActionResultValues::new())
     }
 }
 
@@ -505,6 +505,6 @@ impl ProviderVultr {
         }
         let instance_details: InstanceDetails = instance_details.unwrap();
 
-        return Ok(instance_details);
+        Ok(instance_details)
     }
 }

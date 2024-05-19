@@ -35,23 +35,23 @@ pub trait ControlConnection {
 
     // whether there was a response output to stdout...
     fn had_command_response(&self) -> bool {
-        return false;
+        false
     }
 
     fn get_previous_stdout_response(&self) -> &str {
-        return "";
+        ""
     }
 
     fn get_previous_stderr_response(&self) -> Option<&str> {
-        return None;
+        None
     }
 
     fn get_exit_code(&self) -> Option<i32> {
-        return None;
+        None
     }
 
     fn did_exit_with_error_code(&self) -> bool {
-        return false;
+        false
     }
 
     // helper to return a generic error string when a remote command returns an error exit_code, including the command run,
@@ -71,19 +71,19 @@ pub trait ControlConnection {
     }
 
     fn get_text_file_contents(&mut self, _filepath: &str) -> Result<String, RemoteFileContentsControlError> {
-        return Err(RemoteFileContentsControlError::NotImplemented);
+        Err(RemoteFileContentsControlError::NotImplemented)
     }
 
     fn send_text_file_contents(&mut self, _filepath: &str, _mode: i32, _contents: &str) -> Result<(), RemoteFileContentsControlError> {
-        return Err(RemoteFileContentsControlError::NotImplemented);
+        Err(RemoteFileContentsControlError::NotImplemented)
     }
 
     fn send_file(&mut self, _local_filepath: &str, _dest_filepath: &str, _mode: i32) -> Result<(), ()> {
-        return Err(());
+        Err(())
     }
 
     fn receive_file(&mut self, _remote_filepath: &str, _local_filepath: &str) -> Result<(), ()> {
-        return Err(());
+        Err(())
     }
 }
 
@@ -104,18 +104,18 @@ impl ControlConnection for ControlConnectionDummyDebug {
     }
 
     fn had_command_response(&self) -> bool {
-        return false;
+        false
     }
 
     fn get_previous_stdout_response(&self) -> &str {
-        return "";
+        ""
     }
 
     fn get_text_file_contents(&mut self, _filepath: &str) -> Result<String, RemoteFileContentsControlError> {
-        return Err(RemoteFileContentsControlError::NotImplemented);
+        Err(RemoteFileContentsControlError::NotImplemented)
     }
 
     fn send_text_file_contents(&mut self, _filepath: &str, _mode: i32, _contents: &str) -> Result<(), RemoteFileContentsControlError> {
-        return Err(RemoteFileContentsControlError::NotImplemented);
+        Err(RemoteFileContentsControlError::NotImplemented)
     }
 }

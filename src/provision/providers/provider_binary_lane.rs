@@ -140,7 +140,7 @@ impl ServerDetails {
             }
         }
 
-        return None;
+        None
     }
 }
 
@@ -158,21 +158,21 @@ impl ProviderBinaryLane {
 
 impl ProvisionProvider for ProviderBinaryLane {
     fn name(&self) -> String {
-        return "binary_lane".to_string();
+        "binary_lane".to_string()
     }
 
     fn supports_interactive(&self) -> bool {
-        return true;
+        true
     }
 
     fn prompt_interactive(&self) -> Vec<(String, String)> {
         let mut items = Vec::new();
         items.push(("API_TOKEN".to_string(), "API Token to use Binary Lane API".to_string()));
-        return items;
+        items
     }
 
     fn configure_interactive(&mut self) -> bool {
-        return false;
+        false
     }
 
     fn configure(&mut self) -> bool {
@@ -191,7 +191,7 @@ impl ProvisionProvider for ProviderBinaryLane {
     }
 
     fn is_configured(&self) -> bool {
-        return !self.binary_lane_api_token.is_empty();
+        !self.binary_lane_api_token.is_empty()
     }
 
     // actual commands
@@ -275,7 +275,7 @@ impl ProvisionProvider for ProviderBinaryLane {
             println!("{}", resp_string);
         }
         
-        return true;
+        true
     }
 
     fn get_required_params_for_action(&self, action: ProvisionActionType) -> BTreeSet<&str> {
@@ -420,7 +420,7 @@ impl ProvisionProvider for ProviderBinaryLane {
             try_count += 1;
         }
         
-        return ProvisionActionResult::ActionCreatedInProgress(result_values);
+        ProvisionActionResult::ActionCreatedInProgress(result_values)
     }
 
     fn delete_instance(&self, params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
@@ -474,7 +474,7 @@ impl ProvisionProvider for ProviderBinaryLane {
         // response should be empty...
         let _resp_string = resp.unwrap().into_string().unwrap();
 
-        return ProvisionActionResult::ActionCreatedInProgress(ActionResultValues::new());
+        ProvisionActionResult::ActionCreatedInProgress(ActionResultValues::new())
     }
 }
 
@@ -500,6 +500,6 @@ impl ProviderBinaryLane {
         }
         let server_details: ServerDetails = server_details.unwrap();
 
-        return Ok(server_details);
+        Ok(server_details)
     }
 }

@@ -100,21 +100,21 @@ impl ProviderLinode {
 
 impl ProvisionProvider for ProviderLinode {
     fn name(&self) -> String {
-        return "linode".to_string();
+        "linode".to_string()
     }
 
     fn supports_interactive(&self) -> bool {
-        return true;
+        true
     }
 
     fn prompt_interactive(&self) -> Vec<(String, String)> {
         let mut items = Vec::new();
         items.push(("API_KEY".to_string(), "API Key to use Linode".to_string()));
-        return items;
+        items
     }
 
     fn configure_interactive(&mut self) -> bool {
-        return false;
+        false
     }
 
     fn configure(&mut self) -> bool {
@@ -133,7 +133,7 @@ impl ProvisionProvider for ProviderLinode {
     }
 
     fn is_configured(&self) -> bool {
-        return !self.linode_api_key.is_empty();
+        !self.linode_api_key.is_empty()
     }
 
     // actual commands
@@ -206,7 +206,7 @@ impl ProvisionProvider for ProviderLinode {
             println!("{}", resp_string);
         }
 
-        return true;
+        true
     }
 
     fn get_required_params_for_action(&self, action: ProvisionActionType) -> BTreeSet<&str> {
@@ -382,7 +382,7 @@ impl ProvisionProvider for ProviderLinode {
             }
         }
         
-        return ProvisionActionResult::ActionCreatedDone(result_values);
+        ProvisionActionResult::ActionCreatedDone(result_values)
     }
 
     fn delete_instance(&self, params: &ProvisionParams, _dry_run: bool) -> ProvisionActionResult {
@@ -434,7 +434,7 @@ impl ProvisionProvider for ProviderLinode {
         // response should be empty...
         let _resp_string = resp.unwrap().into_string().unwrap();
 
-        return ProvisionActionResult::ActionCreatedInProgress(ActionResultValues::new());
+        ProvisionActionResult::ActionCreatedInProgress(ActionResultValues::new())
     }
 }
 
@@ -460,6 +460,6 @@ impl ProviderLinode {
         }
         let instance_details: InstanceDetails = instance_details.unwrap();
 
-        return Ok(instance_details);
+        Ok(instance_details)
     }
 }

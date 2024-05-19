@@ -69,7 +69,7 @@ impl ProvisionManager {
         new_provider.configure();
         manager.registered_providers.push(Box::new(new_provider));
 
-        return manager;
+        manager
     }
 
     fn find_provider(&self, provider: &str) -> Option<&dyn ProvisionProvider> {
@@ -79,7 +79,7 @@ impl ProvisionManager {
             }
         }
 
-        return None;
+        None
     }
 
     pub fn list_available(&self, provider: &str, list_type: ListType) -> bool {
@@ -98,7 +98,7 @@ impl ProvisionManager {
 
         provider_item.list_available(list_type);
 
-        return true;
+        true
     }
 
     pub fn perform_action(&self, params: &ProvisionParams, dry_run: bool) -> ProvisionActionResult {
@@ -166,7 +166,7 @@ impl ProvisionManager {
             }
         };
 
-        return ProvisionActionResult::Failed("".to_string());
+        ProvisionActionResult::Failed("".to_string())
     }
 
     // this will print user-friendly error itself, and just returns false to indicate calling code should early-out
@@ -193,6 +193,6 @@ impl ProvisionManager {
             }
         }
 
-        return true;
+        true
     }
 }

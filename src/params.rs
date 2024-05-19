@@ -112,7 +112,7 @@ impl Params {
     }
 
     pub fn has_value(&self, key: &str) -> bool {
-        return self.values.contains_key(key);
+        self.values.contains_key(key)
     }
 
     // TODO: YAML is really annoying with numbers, so this is rather hacky...
@@ -171,11 +171,11 @@ impl Params {
             }
         }
 
-        return values;
+        values
     }
 
     pub fn get_raw_value(&self, key: &str) -> Option<&ParamValue> {
         let res = self.values.get(key);
-        return res;
+        res
     }
 }

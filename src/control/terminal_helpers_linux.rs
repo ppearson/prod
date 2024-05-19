@@ -41,7 +41,7 @@ pub fn extract_details_from_stat_output(output: &str) -> Option<(String, String,
         }
     }
 
-    return None;
+    None
 }
 
 // until we can use 1.52 on all machines...
@@ -50,7 +50,7 @@ fn split_once(string: &str) -> Option<(String, String)> {
         return Some((string[..pos].to_string(), string[pos+1..].to_string()));
     }
 
-    return None;
+    None
 }
 
 fn extract_contents_from_brackets(string: &str) -> Option<Vec<String>> {
@@ -77,7 +77,7 @@ fn extract_contents_from_brackets(string: &str) -> Option<Vec<String>> {
         }
     }
 
-    return Some(contents);
+    Some(contents)
 }
 
 

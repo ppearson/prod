@@ -161,7 +161,7 @@ impl ControlActions {
             return ControlActions::from_file_yaml(path);
         }
 
-        return Err(FileLoadError::CustomError("Unknown file type.".to_string()))
+        Err(FileLoadError::CustomError("Unknown file type.".to_string()))
     }
 
     fn from_file_txt(path: &str) -> Result<ControlActions, FileLoadError> {
@@ -172,7 +172,7 @@ impl ControlActions {
 
         let provision_params = ControlActions::new();
 
-        return Ok(provision_params);
+        Ok(provision_params)
     }
 
     fn from_file_yaml(path: &str) -> Result<ControlActions, FileLoadError> {
@@ -271,7 +271,7 @@ impl ControlActions {
             }
         }
 
-        return Err(FileLoadError::CustomError("Error loading file.".to_string()));
+        Err(FileLoadError::CustomError("Error loading file.".to_string()))
     }
 
     fn ingest_control_actions_yaml_items(&mut self, actions_item: &yaml_rust::yaml::Yaml) {
@@ -343,7 +343,7 @@ fn get_yaml_map_item_as_string(map: &yaml_rust::yaml::Hash, str_val: &str) -> Op
         }
     }
 
-    return None;
+    None
 }
 
 // Note: this passes through the raw values-as is, we don't do any replacement
@@ -475,11 +475,11 @@ pub trait ActionProvider {
 
     // not sure about this one - ideally it'd be static, but...
     fn name(&self) -> String {
-        return "".to_string();
+        "".to_string()
     }
 
     fn get_session_params(&self) -> Option<&ControlSessionParams> {
-        return None;
+        None
     }
 
     // TODO: we might have to make this a derived trait item at some point, but for the moment, we can just
@@ -503,84 +503,84 @@ pub trait ActionProvider {
             final_command.insert(0, ' ');
         }
     
-        return final_command;
+        final_command
     }
 
     fn generic_command(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     // this is not really an Action, as it doesn't modify anything, it just returns values, but...
     fn get_system_details(&self, _connection: &mut ControlSession) -> Result<SystemDetailsResult, GenericError> {
-        return Err(GenericError::NotImplemented);
+        Err(GenericError::NotImplemented)
     }
 
     fn add_user(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     fn create_directory(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     fn remove_directory(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     fn install_packages(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     fn remove_packages(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     fn systemctrl(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     fn firewall(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     fn edit_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     fn copy_path(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     fn remove_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     fn download_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     fn transmit_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     fn receive_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     fn create_symlink(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     fn set_time_zone(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     fn disable_swap(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
     fn create_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        return ActionResult::NotImplemented;
+        ActionResult::NotImplemented
     }
 
 }
