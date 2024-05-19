@@ -74,7 +74,7 @@ pub fn add_user(action_provider: &dyn ActionProvider, connection: &mut ControlSe
     let user = action.params.get_string_value("username").unwrap();
     let mut password = action.params.get_string_value("password").unwrap();
     if password == "$PROMPT" {
-        eprintln!("Please enter password to set for user:");
+        eprintln!("Please enter password to set for new user '{}':", user);
         password = read_password().unwrap();
     }
 
