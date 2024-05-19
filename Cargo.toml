@@ -32,6 +32,17 @@ openssh = ["ssh2"]
 sshrs = ["ssh-rs", "temp-file"]
 
 # dependencies for 'control'...
+
+# Note: openssh is fully-featured and works, but only on Linux, whereas ssh-rs seems to have somewhat
+#       problematic public key support (at least in my testing: it panics in places internally
+#       with a variety of different keys - I think because it's incorrectly decoding them, but not sure:
+#       it could be something I'm doing wrong), but it does work with user/password authentication and
+#       builds on all platforms, so for the moment I'm making ssh-rs the default for convenience's sake
+#       for MacOS dev...
+
+#       Would be nice if https://github.com/rust-lang/cargo/issues/1197 existed as well, so Linux builds
+#       could always use openssh without having to do this...
+
 # Select one of these...
 #remote = ["openssh"]
 remote = ["sshrs"]
