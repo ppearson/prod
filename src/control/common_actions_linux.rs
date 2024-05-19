@@ -247,16 +247,15 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
     let list_swapfiles_command = "cat /proc/swaps".to_string();
     connection.conn.send_command(&action_provider.post_process_command(&list_swapfiles_command));
 
-    if let Some(str) = connection.conn.get_previous_stderr_response() {
-        eprintln!("disable_swap error: {}", str);
-        return ActionResult::FailedCommand(str.to_string());
+    if connection.conn.did_exit_with_error_code() {
+        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&list_swapfiles_command,
+            action));
     }
 
     // if there is already a swapfile configured, the stdout output should be more than one line...
     if connection.conn.get_previous_stdout_response().is_empty() {
         // stdout output was empty, which isn't expected...
-        eprintln!("disable_swap error with unexpected response");
-        return ActionResult::FailedCommand("".to_string());
+        return ActionResult::FailedCommand("disableSwap error with unexpected response to 'cat /proc/swaps' command.".to_string());
     }
 
     let mut swapfile_names_to_delete = Vec::with_capacity(1);
@@ -280,13 +279,11 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
     }
     else {
         // Not really sure how we'd reach here unless the response was malformed...
-        eprintln!("disable_swap error with unexpected response2");
-        return ActionResult::FailedCommand("".to_string());
+        return ActionResult::FailedCommand("disableSwap error with unexpected response2".to_string());
     }
 
     if swapfile_names_to_delete.is_empty() {
-        eprintln!("disable_swap error: couldn't find specified swapfile to disable / delete.");
-        return ActionResult::FailedCommand("".to_string());
+        return ActionResult::FailedOther("disableSwap error: couldn't find specified swapfile to disable / delete.".to_string());
     }
 
     if filename == "*" {
