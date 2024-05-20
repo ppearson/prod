@@ -52,6 +52,8 @@ pub enum ControlActionType {
     SetTimeZone,
     DisableSwap,
     CreateFile,
+    AddGroup,
+    SetHostname,
 }
 
 impl fmt::Display for ControlActionType {
@@ -77,6 +79,8 @@ impl fmt::Display for ControlActionType {
             ControlActionType::SetTimeZone      => write!(f, "setTimeZone"),
             ControlActionType::DisableSwap      => write!(f, "disableSwap"),
             ControlActionType::CreateFile       => write!(f, "createFile"),
+            ControlActionType::AddGroup         => write!(f, "addGroup"),
+            ControlActionType::SetHostname      => write!(f, "setHostname"),
         }
     }
 }
@@ -318,6 +322,8 @@ impl ControlActions {
             "setTimeZone" =>        ControlActionType::SetTimeZone,
             "disableSwap" =>        ControlActionType::DisableSwap,
             "createFile" =>         ControlActionType::CreateFile,
+            "addGroup" =>           ControlActionType::AddGroup,
+            "setHostname" =>        ControlActionType::SetHostname,
             _ =>                    ControlActionType::Unrecognised
         };
 
@@ -580,6 +586,14 @@ pub trait ActionProvider {
     }
 
     fn create_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
+        ActionResult::NotImplemented
+    }
+
+    fn add_group(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
+        ActionResult::NotImplemented
+    }
+
+    fn set_hostname(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
         ActionResult::NotImplemented
     }
 

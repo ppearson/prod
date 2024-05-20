@@ -380,3 +380,98 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
     
     return ActionResult::Success;
 }
+
+pub fn add_group(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    // use groupadd and usermod commands which should be common across Linux distros...
+
+    // validate params
+    if !action.params.has_value("name") {
+        return ActionResult::InvalidParams("The 'name' parameter was not specified.".to_string());
+    }
+
+    let group_name = action.params.get_string_value("name").unwrap();
+
+    let groupadd_full_command = format!("groupadd {}", group_name);
+
+    connection.conn.send_command(&action_provider.post_process_command(&groupadd_full_command));
+
+    if connection.conn.did_exit_with_error_code() {
+        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&groupadd_full_command,
+            action));
+    }
+
+    // now add users specified to the group
+    // see if there's just a single group...
+    if action.params.has_value("user") {
+        let usermod_command = format!("usermod -aG {} {}", group_name, action.params.get_string_value_with_default("user", ""));
+        connection.conn.send_command(&action_provider.post_process_command(&usermod_command));
+        if connection.conn.did_exit_with_error_code() {
+            return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&usermod_command,
+                action));
+        }
+    }
+    else if action.params.has_value("users") {
+        // there's multiple
+        let users = action.params.get_values_as_vec_of_strings("users");
+        for user in users {
+            let usermod_command = format!("usermod -aG {} {}", group_name, user);
+            connection.conn.send_command(&action_provider.post_process_command(&usermod_command));
+            if connection.conn.did_exit_with_error_code() {
+                return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&usermod_command,
+                    action));
+            }
+        }
+    }
+
+    return ActionResult::Success;
+}
+
+pub fn set_hostname(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    // validate param
+    if !action.params.has_value("hostname") {
+        return ActionResult::InvalidParams("The 'hostname' parameter was not specified.".to_string());
+    }
+
+    // assume for the moment that systemd is installed, so hostnamectl can be used.
+
+    let host_name = action.params.get_string_value("hostname").unwrap();
+
+    let hostnamectrl_full_command = format!("hostnamectl set-hostname {}", host_name);
+
+    connection.conn.send_command(&action_provider.post_process_command(&hostnamectrl_full_command));
+
+    if connection.conn.did_exit_with_error_code() {
+        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&hostnamectrl_full_command,
+            action));
+    }
+
+    // validate that it was set
+    let hostnamectrl = "hostnamectl";
+    connection.conn.send_command(&action_provider.post_process_command(&hostnamectrl));
+
+    if connection.conn.did_exit_with_error_code() {
+        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&hostnamectrl,
+            action));
+    }
+
+    // check we had output to stdout...
+    if connection.conn.get_previous_stdout_response().is_empty() {
+        // stdout output was empty, which isn't expected...
+        return ActionResult::FailedCommand("setHostname error with unexpected response to 'hostnamectl' command.".to_string());
+    }
+
+    for line in connection.conn.get_previous_stdout_response().lines() {
+        // we need to strip leading whitespace, as the title text per line
+        // is right-aligned with spaces
+        let stripped_line = line.trim_start();
+        if let Some(result) = stripped_line.strip_prefix("Static hostname:") {
+            if result.trim() == host_name {
+                // it was set successfully...
+                return ActionResult::Success;
+            }
+        }
+    }
+
+    // otherwise, something likely went wrong...
+    return ActionResult::FailedCommand("setHostname action could not verify that hostname was set.".to_string());
+}

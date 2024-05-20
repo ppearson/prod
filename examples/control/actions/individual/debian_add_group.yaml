@@ -1,0 +1,9 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - addGroup:
+    name: group01
+
+

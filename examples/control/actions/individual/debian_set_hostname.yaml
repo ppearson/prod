@@ -1,0 +1,9 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - setHostname:
+    hostname: newhostname.net
+
+

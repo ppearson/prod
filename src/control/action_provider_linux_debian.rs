@@ -245,5 +245,13 @@ impl ActionProvider for AProviderLinuxDebian {
     fn create_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         return common_actions_unix::create_file(self, connection, action);
     }
+
+    fn add_group(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        return common_actions_linux::add_group(self, connection, action);
+    }
+
+    fn set_hostname(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        return common_actions_linux::set_hostname(self, connection, action);
+    }
 }
 

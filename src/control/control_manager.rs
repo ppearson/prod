@@ -378,6 +378,12 @@ impl ControlManager {
                 ControlActionType::CreateFile => {
                     provider.create_file(&mut connection, action)
                 },
+                ControlActionType::AddGroup => {
+                    provider.add_group(&mut connection, action)
+                },
+                ControlActionType::SetHostname => {
+                    provider.set_hostname(&mut connection, action)
+                },
                 ControlActionType::NotSet | ControlActionType::Unrecognised => {
                    ActionResult::FailedOther("Invalid Action Type".to_string())
                 }
