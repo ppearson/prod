@@ -21,5 +21,9 @@ based off YAML scripts describing actions and properties of what is desired.
    provisioning/index
 
    controlling/index
+   controlling/control_general_schema
+   controlling/actions/index
+
+
 
 
