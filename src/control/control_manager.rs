@@ -195,7 +195,7 @@ impl ControlManager {
                     eprintln!("Enter password for user '{}' on host '{}':", &username, &target_host);
                 }
                 else {
-                    eprintln!("Enter password:");
+                    eprintln!("Enter password for user '{}':", &username);
                 }
                 userpass.password = read_password().unwrap();
             }
