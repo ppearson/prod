@@ -25,5 +25,5 @@ Supported parameters:
       - An optional string value representing a single existing user to add to the newly-created group.
     * - ``users``
       - ``string array`` - optional.
-      - An optional string array parameter representing multiple users to add to the newly-created group.
+      - An optional string array parameter representing multiple exiting users to add to the newly-created group.
     

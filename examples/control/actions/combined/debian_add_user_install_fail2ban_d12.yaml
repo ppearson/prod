@@ -5,12 +5,10 @@
  # Make sure we're running on Debian 12 or later (with systemd logging)
  systemValidation: ">=12"
  actions:
- - addUser:
+- addUser:
     username: newUser
     password: ChangeThisPassword
-    createHome: true
-    shell: /bin/bash
-    groups:
+    extraGroups:
       - sudo
  - installPackages:
     packages:

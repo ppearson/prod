@@ -8,9 +8,7 @@
  - addUser:
     username: newUser
     password: ChangeThisPassword
-    createHome: true
-    shell: /bin/bash
-    groups:
+    extraGroups:
       - sudo
  - installPackages:
     packages:

@@ -8,7 +8,8 @@ Introduction
 This section describes the supported Actions and their parameters that can be specified in a Control script, which
 perform "actions", or config/changes to the system.
 
-Actions list:
+Actions list
+------------
 
 .. list-table::
     :widths: 8 30

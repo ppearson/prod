@@ -72,6 +72,10 @@ pub fn add_user(action_provider: &dyn ActionProvider, connection: &mut ControlSe
     let mut useradd_command_options = String::new();
 
     let user = action.params.get_string_value("username").unwrap();
+    if user.is_empty() {
+        return ActionResult::InvalidParams("The 'username' parameter must be a valid string.".to_string());
+    }
+
     let mut password = action.params.get_string_value("password").unwrap();
     if password == "$PROMPT" {
         eprintln!("Please enter password to set for new user '{}':", user);
@@ -88,9 +92,33 @@ pub fn add_user(action_provider: &dyn ActionProvider, connection: &mut ControlSe
         useradd_command_options.push_str("-M ");
     }
 
-    let shell = action.params.get_string_value_with_default("shell", "/bin/bash");
-    useradd_command_options.push_str(&format!("-s {}", shell));
+    // work out what to do about any groups...
 
+    // default group
+    if let Some(default_group) = action.params.get_string_value("defaultGroup") {
+        useradd_command_options.push_str(&format!("-g {} ", default_group));
+    }
+
+    // additional extra groups
+    if action.params.has_value("extraGroups") {
+        // there could be multiple...
+        let extra_groups = action.params.get_values_as_vec_of_strings("extraGroups");
+        useradd_command_options.push_str(&format!("-G {} ", extra_groups.join(",")));
+    }
+
+    // In theory, we should probably only optionally set this shell argument if the 'shell' param is set,
+    // however that means in practice we often get '/bin/sh' shells by default which isn't great,
+    // and having to mess around with '/etc/default/useradd' beforehand just to be "correct" seems
+    // a bit silly, especially given the use-cases of Prod, so make an opinionated decision to have
+    // '/bin/bash' as the default shell if the param's not specified.
+    // If we do start supporting other platforms (MacOS / BSDs?), we might need to re-think this...
+    let default_shell = action.params.get_string_value_with_default("shell", "/bin/bash");
+    // however, special-case an empty string to allow not specifying this argument so the system default
+    // can still be used if that is what's wanted...
+    if !default_shell.is_empty() {
+        useradd_command_options.push_str(&format!("-s {}", default_shell));
+    }
+    
     let useradd_full_command = format!("useradd {} {}", useradd_command_options, user);
 
     connection.conn.send_command(&action_provider.post_process_command(&useradd_full_command));
@@ -102,34 +130,11 @@ pub fn add_user(action_provider: &dyn ActionProvider, connection: &mut ControlSe
 
     // double make sure we don't add command to history here, even though post_process_command() should do it
     // if required.
+    // TODO: only root can use chpasswd, and it will silently fail if the complexity requirement isn't met,
+    //       which obviously isn't great...
 //    let change_password_command = format!(" echo -e \"{0}\n{0}\" | passwd {1}", password, user);
     let change_password_command = format!(" echo -e '{}:{}' | chpasswd", user, password);
     connection.conn.send_command(&action_provider.post_process_command(&change_password_command));
-
-    let mut check_no_response = false;
-    // now add user to any groups
-    // see if there's just a single group...
-    if action.params.has_value("group") {
-        let usermod_command = format!("usermod -aG {} {}", action.params.get_string_value_with_default("group", ""), user);
-        connection.conn.send_command(&action_provider.post_process_command(&usermod_command));
-        check_no_response = true;
-    }
-    else if action.params.has_value("groups") {
-        // there's multiple
-        let groups = action.params.get_values_as_vec_of_strings("groups");
-        for group in groups {
-            let usermod_command = format!("usermod -aG {} {}", group, user);
-            connection.conn.send_command(&action_provider.post_process_command(&usermod_command));
-        }
-        check_no_response = true;
-    }
-
-    if check_no_response {
-    // check response is nothing...
-        if connection.conn.had_command_response() {
-            return ActionResult::FailedCommand(format!("Unexpected response from usermod command: {}", connection.conn.get_previous_stderr_response().unwrap_or("")));
-        }
-    }
 
     return ActionResult::Success;
 }

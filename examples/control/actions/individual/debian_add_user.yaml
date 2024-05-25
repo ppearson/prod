@@ -7,7 +7,7 @@
     username: test1
     password: $PROMPT
     createHome: true
-    shell: /bin/bash
-    groups:
+    shell: /bin/zsh
+    extraGroups:
       - sudo
 
