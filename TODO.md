@@ -17,10 +17,13 @@ Control
 
 Smaller things:
 
-* Add verbose mode to control, which lists the actions that are being run on the remote machine.
-* Implement and verify ssh key connection with ControlConnectionSSHrs
+* Pre-validation of action parameters, before actually starting to connect and run actions.
+* Better addUser support for setting user passwords and validating that the password has been set correctly.
+* Better support for running as non-root user - i.e. using sudo.
 
 Larger-scale longer-term changes:
 
-* Control scripts using other formats (.txt / properties?)
-* State-based changes with final state verification, rather than current 'action' based changes with little error checking...
+* Support for running Control scripts on multiple hosts at once.
+* Control scripts using other additional formats (.txt / TOML / properties?).
+* State-based "target" changes with final state verification - i.e. "Idempotency", rather than current 'action'
+  based changes with somewhat limited error checking...
