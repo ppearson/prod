@@ -76,16 +76,31 @@ pub fn create_directory(action_provider: &dyn ActionProvider, connection: &mut C
     if let Some(permissions) = action.params.get_string_or_int_value_as_string("permissions") {
         let chmod_command = format!("chmod {} {}", permissions, path_to_create);
         connection.conn.send_command(&action_provider.post_process_command(&chmod_command));
+
+        if connection.conn.did_exit_with_error_code() {
+            return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&chmod_command,
+                action));
+        }
     }
 
     if let Some(owner) = action.params.get_string_value("owner") {
         let chown_command = format!("chown {} {}", owner, path_to_create);
         connection.conn.send_command(&action_provider.post_process_command(&chown_command));
+
+        if connection.conn.did_exit_with_error_code() {
+            return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&chown_command,
+                action));
+        }
     }
 
     if let Some(group) = action.params.get_string_value("group") {
         let chgrp_command = format!("chgrp {} {}", group, path_to_create);
         connection.conn.send_command(&action_provider.post_process_command(&chgrp_command));
+
+        if connection.conn.did_exit_with_error_code() {
+            return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&chgrp_command,
+                action));
+        }
     }
 
     // TODO: check for 'groups' as well to handle setting multiple...
@@ -114,7 +129,7 @@ pub fn remove_directory(action_provider: &dyn ActionProvider, connection: &mut C
     let ignore_failure = action.params.get_value_as_bool("ignoreFailure", false);
 
     connection.conn.send_command(&action_provider.post_process_command(&rmdir_command));
-    if connection.conn.did_exit_with_error_code() && !ignore_failure {
+    if !ignore_failure && connection.conn.did_exit_with_error_code() {
         return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&rmdir_command,
             action));
     }
@@ -174,7 +189,7 @@ pub fn remove_file(action_provider: &dyn ActionProvider, connection: &mut Contro
     let ignore_failure = action.params.get_value_as_bool("ignoreFailure", false);
 
     connection.conn.send_command(&action_provider.post_process_command(&rm_command));
-    if connection.conn.did_exit_with_error_code() && !ignore_failure {
+    if !ignore_failure && connection.conn.did_exit_with_error_code() {
         return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&rm_command,
             action));
     }
@@ -285,8 +300,7 @@ pub fn transmit_file(action_provider: &dyn ActionProvider, connection: &mut Cont
     // see if we should also extract it
     if let Some(extract_dir) = action.params.get_string_value("extractDir") {
         // check this directory actually exists...
-        if !extract_dir.is_empty()
-        {
+        if !extract_dir.is_empty() {
             let test_cmd = format!("test -d {} && echo \"yep\"", extract_dir);
             connection.conn.send_command(&action_provider.post_process_command(&test_cmd));
 
