@@ -111,7 +111,7 @@ impl ControlManager {
                                                            actions.port.unwrap_or(22),
                                                            actions.auth.clone(), true);
 
-        // temp creation to check it exists as a provider name...
+        // check the provider exists as a provider name...
         let provider = self.create_provider(&actions.provider, session_params);
         if provider.is_none() {
             eprintln!("Error: Can't find control provider: '{}'.", actions.provider);
