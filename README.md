@@ -10,14 +10,14 @@ about HTTP web services from VPS providers, although also to scratch an itch of 
 a VPS provisioning and configuration tool, approximating some functionality of tools like Terraform and Ansible.
 
 Prod's current functionality includes limited support for Provisioning cloud VPS instances (with several providers
-supported to a limited degree), as well as support for Controlling the servers (running commands on them to configure them)
-afterwards, based off YAML scripts describing actions and properties of what is desired.
+supported to a limited degree), as well as support for Controlling the servers (running commands on them to
+configure them) afterwards, based off YAML scripts describing actions and properties of what is desired.
 
 It's still very much work-in-progress, although it is functional to a basic degree.
 
 
 Control functionality can utilise either the `ssh2` crate (which depends on openssl) or the `ssh-rs` crate, and this can be
-controlled with features in Cargo.toml, or disabled completely.
+controlled with features in `Cargo.toml`, or disabled completely.
 
 
 Provisioning
@@ -88,8 +88,6 @@ config and jail files, edits the local copy, starts the fail2ban service, and th
     - addUser:
         username: MrUser
         password: DontForgetThePassword
-        createHome: true
-        shell: /bin/bash
         groups:
         - sudo
     - installPackages:
@@ -108,18 +106,18 @@ config and jail files, edits the local copy, starts the fail2ban service, and th
         backup: false
         filepath: "/etc/fail2ban/jail.local"
         insertLine:
-         position: below
-         matchString: '[sshd]'
-         insertString: 'enabled: true'
-         matchType: startsWith
-         onceOnly: true
-         reportFailure: false
+          position: below
+          matchString: '[sshd]'
+          insertString: 'enabled: true'
+          matchType: startsWith
+          onceOnly: true
+          reportFailure: false
         replaceLine:
-         matchString: 'bantime  = 10m'
-         replaceString: 'bantime  = 120m'
-         matchType: startsWith
-         onceOnly: true
-         reportFailure: false
+          matchString: 'bantime  = 10m'
+          replaceString: 'bantime  = 120m'
+          matchType: startsWith
+          onceOnly: true
+          reportFailure: false
     - systemCtl:
         service: "fail2ban"
         action: start
