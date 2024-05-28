@@ -88,7 +88,7 @@ config and jail files, edits the local copy, starts the fail2ban service, and th
     - addUser:
         username: MrUser
         password: DontForgetThePassword
-        groups:
+        extraGroups:
         - sudo
     - installPackages:
         packages:
