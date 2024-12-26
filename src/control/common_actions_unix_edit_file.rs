@@ -32,6 +32,8 @@ enum FileEditMatchType {
     EndsWith
 }
 
+// TODO: add the ability to have something which will keep any leading whitespace
+//       when replacing, so alignment still matches?
 struct ReplaceLineEntry {
     pub match_string:        String,
     pub replace_string:      String,
@@ -48,27 +50,44 @@ impl ReplaceLineEntry {
 }
 
 fn extract_edit_line_entry_items<T>(params: &Params, key: &str, fun: &dyn Fn(&BTreeMap<String, ParamValue>) -> Option<T>) -> Vec<T> {
-    let mut replace_line_entries = Vec::with_capacity(0);
+    let mut line_entries = Vec::with_capacity(0);
 
     let param = params.get_raw_value(key);
     if let Some(ParamValue::Map(map)) = param {
         // cope with single items inline as map...
         if let Some(entry) = fun(map) {
-            replace_line_entries.push(entry);
+            line_entries.push(entry);
         }
     }
     else if let Some(ParamValue::Array(array)) = param {
-        // cope with multiple items as an array
+        // cope with multiple items of as an array, i.e. a map first-level item
+        // of 'replaceLine', which itself is an array item with the multiple items
+        // under it describing the params for each replacement. See the example
+        // debian_edit_file2.yaml.
         for item in array {
             if let ParamValue::Map(map) = item {
                 if let Some(entry) = fun(map) {
-                    replace_line_entries.push(entry);
+                    line_entries.push(entry);
+                }
+            }
+        }
+    }
+    
+    // alternatively, look for an 'items' value which might contain multiple line sub-entry items...
+    let items = params.get_raw_value("items");
+    if let Some(ParamValue::Array(array)) = items {
+        for item in array {
+            if let ParamValue::Map(map) = item {
+                if let Some(ParamValue::Map(inner_params)) = map.get(key) {
+                    if let Some(entry) = fun(inner_params) {
+                        line_entries.push(entry);
+                    }
                 }
             }
         }
     }
 
-    return replace_line_entries;
+    return line_entries;
 }
 
 fn get_edit_line_entry_match_type(entry: &BTreeMap<String, ParamValue>) -> FileEditMatchType {
@@ -299,7 +318,8 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
 
         // TODO: it's ambiguous what we should do when both an insert item and replace item
         //       might match a line, but let's just ignore handling that situation for the moment,
-        //       and assume params will be set exclusively for each...
+        //       and assume params will be set exclusively for each, but this is obviously
+        //       going to need re-thinking in the future and making more robust...
 
         for insert_item in &insert_line_items {
             if item_matches_closure(&insert_item.match_type, &insert_item.match_string, line) {
@@ -350,8 +370,8 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
     }
     
     let send_res = connection.conn.send_text_file_contents(&filepath, mode, &new_file_contents_string);
-    if send_res.is_err() {
-        return ActionResult::FailedOther("Failed to send file contents back to host".to_string());
+    if let Err(err) = send_res {
+        return ActionResult::FailedOther(format!("Failed to send file contents back to host: {}", err));
     }
 
     // TODO: change user and group of file to cached value from beforehand...

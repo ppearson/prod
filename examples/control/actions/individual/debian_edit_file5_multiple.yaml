@@ -1,0 +1,25 @@
+---
+ provider: linux_debian
+ host: localhost
+ user: $PROMPT
+ actions:
+ - editFile:
+    backup: true
+    filepath: "/home/peter/test11.json"
+    items:
+      - replaceLine:
+           matchString: '"setting1-enabled": true,'
+           replaceString: '    "setting1-enabled": false,'
+           onceOnly: true
+      -  replaceLine:
+           matchString: '"localport": '
+           replaceString: '    "localport": 1055,'
+           onceOnly: true
+      -  replaceLine:
+           matchString: '"another-setting": '
+           replaceString: '    "another-setting": "never",'
+           onceOnly: true
+
+
+
+

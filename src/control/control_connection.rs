@@ -14,6 +14,8 @@
 */
 #![allow(dead_code)]
 
+use std::fmt;
+
 use super::control_actions::ControlAction;
 
 #[derive(Clone, Debug)]
@@ -26,6 +28,22 @@ pub enum RemoteFileContentsControlError {
     CantCreateLocalTempFile(String), // not relevant for all ControlConnection impls...
     TransferError(String),
     Other(String),
+}
+
+impl fmt::Display for RemoteFileContentsControlError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let error_str = match self {
+            RemoteFileContentsControlError::LocalFileDoesntExist(str_val) => format!("Local File Doesn't exist: {}", str_val),
+            RemoteFileContentsControlError::RemoteFileDoesntExist(str_val) => format!("Remote File Doesn't exist: {}", str_val),
+            RemoteFileContentsControlError::CantConnect(str_val) => format!("Can't connect to remote host: {}", str_val),
+            RemoteFileContentsControlError::AuthenticationIssue(str_val) => format!("Authentication Issue: {}", str_val),
+            RemoteFileContentsControlError::CantCreateLocalTempFile(str_val) => format!("Can't create local temp file: {}", str_val),
+            RemoteFileContentsControlError::TransferError(str_val) => format!("Transfer error: {}", str_val),
+            RemoteFileContentsControlError::Other(str_val) => format!("Other error: {}", str_val),
+            RemoteFileContentsControlError::NotImplemented => "Not implemented".to_string(),
+        };
+        writeln!(f, "{}", error_str)
+    }
 }
 
 pub trait ControlConnection {
