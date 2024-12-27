@@ -253,5 +253,9 @@ impl ActionProvider for AProviderLinuxDebian {
     fn set_hostname(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
         return common_actions_linux::set_hostname(self, connection, action);
     }
+
+    fn create_systemd_service(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+        return common_actions_linux::create_systemd_service(self, connection, action);
+    }
 }
 

@@ -480,3 +480,107 @@ pub fn set_hostname(action_provider: &dyn ActionProvider, connection: &mut Contr
     // otherwise, something likely went wrong...
     return ActionResult::FailedCommand("setHostname action could not verify that hostname was set.".to_string());
 }
+
+pub fn create_systemd_service(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    // validate params
+    if !action.params.has_value("name") {
+        return ActionResult::InvalidParams("The 'name' parameter was not specified.".to_string());
+    }
+
+    if !action.params.has_value("description") {
+        return ActionResult::InvalidParams("The 'description' parameter was not specified.".to_string());
+    }
+
+    if !action.params.has_value("user") {
+        return ActionResult::InvalidParams("The 'user' parameter was not specified.".to_string());
+    }
+
+    if !action.params.has_value("execStart") {
+        return ActionResult::InvalidParams("The 'execStart' parameter was not specified.".to_string());
+    }
+
+    let service_name = action.params.get_string_value("name").unwrap();
+    let description = action.params.get_string_value("description").unwrap();
+    let user = action.params.get_string_value("user").unwrap();
+    let exec_start = action.params.get_string_value("execStart").unwrap();
+
+    // Note: docs here: https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#Options
+
+    let unit_service_file_path = format!("/etc/systemd/system/{}.service", service_name);
+
+    // TODO: see if it exists already?
+
+    let mut file_content = format!("[Unit]\nDescription={}\n", description);
+
+    if let Some(after) = action.params.get_string_value("after") {
+        file_content.push_str(&format!("After={}\n", after));
+    }
+    if let Some(before) = action.params.get_string_value("before") {
+        file_content.push_str(&format!("Before={}\n", before));
+    }  
+
+    file_content.push('\n');
+
+    // default 
+
+    file_content.push_str(&format!("[Service]\nType=simple\nUser={}\nExecStart={}\n",
+        user,
+        exec_start));
+    
+    if let Some(exec_reload) = action.params.get_string_value("execRestart") {
+        file_content.push_str(&format!("ExecRestart={}\n", exec_reload));
+    }
+
+    if let Some(exec_stop) = action.params.get_raw_value("execStop") {
+        file_content.push_str(&format!("ExecStop={}\n", exec_stop));
+    }
+    
+    // TODO: make this configurable...
+    file_content.push_str(&format!("Restart=always\nRestartSec=2\n"));
+    file_content.push('\n');
+
+    // and this...
+    file_content.push_str("[Install]\nWantedBy=multi-user.target\n");
+
+    // Note: currently with ssh-rs being used (which doesn't support setting target file mode perms), this
+    //       will only be useable with the 'root' user being enabled.
+    let res = connection.conn.send_text_file_contents(&unit_service_file_path, 0o644, &file_content);
+    if let Err(err) = res {
+        return ActionResult::FailedCommand(format!("Error creating remote file for new service: '{}', error: {}",
+        unit_service_file_path, err));
+    }
+
+    // reload it
+
+    let reload_command = "sudo systemctl daemon-reload";
+    connection.conn.send_command(&action_provider.post_process_command(reload_command));
+    if connection.conn.did_exit_with_error_code() {
+        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(reload_command,
+            action));
+    }
+
+    // now start it
+    let systemctrl_start_command = format!("systemctl start {}", service_name);
+    connection.conn.send_command(&action_provider.post_process_command(&systemctrl_start_command));
+
+    if connection.conn.did_exit_with_error_code() {
+        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&systemctrl_start_command,
+            action));
+    }
+
+    // now enable it (think this starts it on boot... maybe that should be conditional, i.e. connected with the 'WantedBy' bit?)
+    let systemctrl_enable_command = format!("systemctl enable {}", service_name);
+    connection.conn.send_command(&action_provider.post_process_command(&systemctrl_enable_command));
+
+    if connection.conn.did_exit_with_error_code() {
+        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&systemctrl_enable_command,
+            action));
+    }
+
+    // check status...
+    if connection.conn.did_exit_with_error_code() {
+        return ActionResult::FailedCommand("Error: systemctl status did not return that the newly created service was actually started.".to_string());
+    }
+
+    return ActionResult::Success;
+}

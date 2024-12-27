@@ -40,7 +40,7 @@ pub enum ControlActionType {
     RemoveDirectory,
     InstallPackages,
     RemovePackages,
-    SystemCtl,
+    SystemCtl,  // TODO: rename this to systemd?
     Firewall,
     EditFile,
     CopyPath,
@@ -54,33 +54,35 @@ pub enum ControlActionType {
     CreateFile,
     AddGroup,
     SetHostname,
+    CreateSystemdService,
 }
 
 impl fmt::Display for ControlActionType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ControlActionType::NotSet           => write!(f, "None"),
-            ControlActionType::Unrecognised     => write!(f, "Unrecognised"),
-            ControlActionType::GenericCommand   => write!(f, "genericCommand"),
-            ControlActionType::AddUser          => write!(f, "addUser"),
-            ControlActionType::CreateDirectory  => write!(f, "createDirectory"),
-            ControlActionType::RemoveDirectory  => write!(f, "removeDirectory"),
-            ControlActionType::InstallPackages  => write!(f, "installPackages"),
-            ControlActionType::RemovePackages   => write!(f, "removePackages"),
-            ControlActionType::SystemCtl        => write!(f, "systemCtl"),
-            ControlActionType::Firewall         => write!(f, "firewall"),
-            ControlActionType::EditFile         => write!(f, "editFile"),
-            ControlActionType::CopyPath         => write!(f, "copyPath"),
-            ControlActionType::RemoveFile       => write!(f, "removeFile"),
-            ControlActionType::DownloadFile     => write!(f, "downloadFile"),
-            ControlActionType::TransmitFile     => write!(f, "transmitFile"),
-            ControlActionType::ReceiveFile      => write!(f, "receiveFile"),
-            ControlActionType::CreateSymlink    => write!(f, "createSymlink"),
-            ControlActionType::SetTimeZone      => write!(f, "setTimeZone"),
-            ControlActionType::DisableSwap      => write!(f, "disableSwap"),
-            ControlActionType::CreateFile       => write!(f, "createFile"),
-            ControlActionType::AddGroup         => write!(f, "addGroup"),
-            ControlActionType::SetHostname      => write!(f, "setHostname"),
+            ControlActionType::NotSet               => write!(f, "None"),
+            ControlActionType::Unrecognised         => write!(f, "Unrecognised"),
+            ControlActionType::GenericCommand       => write!(f, "genericCommand"),
+            ControlActionType::AddUser              => write!(f, "addUser"),
+            ControlActionType::CreateDirectory      => write!(f, "createDirectory"),
+            ControlActionType::RemoveDirectory      => write!(f, "removeDirectory"),
+            ControlActionType::InstallPackages      => write!(f, "installPackages"),
+            ControlActionType::RemovePackages       => write!(f, "removePackages"),
+            ControlActionType::SystemCtl            => write!(f, "systemCtl"),
+            ControlActionType::Firewall             => write!(f, "firewall"),
+            ControlActionType::EditFile             => write!(f, "editFile"),
+            ControlActionType::CopyPath             => write!(f, "copyPath"),
+            ControlActionType::RemoveFile           => write!(f, "removeFile"),
+            ControlActionType::DownloadFile         => write!(f, "downloadFile"),
+            ControlActionType::TransmitFile         => write!(f, "transmitFile"),
+            ControlActionType::ReceiveFile          => write!(f, "receiveFile"),
+            ControlActionType::CreateSymlink        => write!(f, "createSymlink"),
+            ControlActionType::SetTimeZone          => write!(f, "setTimeZone"),
+            ControlActionType::DisableSwap          => write!(f, "disableSwap"),
+            ControlActionType::CreateFile           => write!(f, "createFile"),
+            ControlActionType::AddGroup             => write!(f, "addGroup"),
+            ControlActionType::SetHostname          => write!(f, "setHostname"),
+            ControlActionType::CreateSystemdService => write!(f, "createSystemdService"),
         }
     }
 }
@@ -304,27 +306,28 @@ impl ControlActions {
         // TODO: do this properly, with a registry which maps the name to the Impl derived item...
 
         new_action.action = match name {
-            "genericCommand" =>     ControlActionType::GenericCommand,
-            "addUser" =>            ControlActionType::AddUser,
-            "createDirectory" =>    ControlActionType::CreateDirectory,
-            "removeDirectory" =>    ControlActionType::RemoveDirectory,
-            "installPackages" =>    ControlActionType::InstallPackages,
-            "removePackages" =>     ControlActionType::RemovePackages,
-            "systemCtl" =>          ControlActionType::SystemCtl,
-            "firewall" =>           ControlActionType::Firewall,
-            "editFile" =>           ControlActionType::EditFile,
-            "copyPath" =>           ControlActionType::CopyPath,
-            "removeFile" =>         ControlActionType::RemoveFile,
-            "downloadFile" =>       ControlActionType::DownloadFile,
-            "transmitFile" =>       ControlActionType::TransmitFile,
-            "receiveFile" =>        ControlActionType::ReceiveFile,
-            "createSymlink" =>      ControlActionType::CreateSymlink,
-            "setTimeZone" =>        ControlActionType::SetTimeZone,
-            "disableSwap" =>        ControlActionType::DisableSwap,
-            "createFile" =>         ControlActionType::CreateFile,
-            "addGroup" =>           ControlActionType::AddGroup,
-            "setHostname" =>        ControlActionType::SetHostname,
-            _ =>                    ControlActionType::Unrecognised
+            "genericCommand" =>         ControlActionType::GenericCommand,
+            "addUser" =>                ControlActionType::AddUser,
+            "createDirectory" =>        ControlActionType::CreateDirectory,
+            "removeDirectory" =>        ControlActionType::RemoveDirectory,
+            "installPackages" =>        ControlActionType::InstallPackages,
+            "removePackages" =>         ControlActionType::RemovePackages,
+            "systemCtl" =>              ControlActionType::SystemCtl,
+            "firewall" =>               ControlActionType::Firewall,
+            "editFile" =>               ControlActionType::EditFile,
+            "copyPath" =>               ControlActionType::CopyPath,
+            "removeFile" =>             ControlActionType::RemoveFile,
+            "downloadFile" =>           ControlActionType::DownloadFile,
+            "transmitFile" =>           ControlActionType::TransmitFile,
+            "receiveFile" =>            ControlActionType::ReceiveFile,
+            "createSymlink" =>          ControlActionType::CreateSymlink,
+            "setTimeZone" =>            ControlActionType::SetTimeZone,
+            "disableSwap" =>            ControlActionType::DisableSwap,
+            "createFile" =>             ControlActionType::CreateFile,
+            "addGroup" =>               ControlActionType::AddGroup,
+            "setHostname" =>            ControlActionType::SetHostname,
+            "createSystemdService" =>   ControlActionType::CreateSystemdService,
+            _ =>                        ControlActionType::Unrecognised
         };
 
         if new_action.action == ControlActionType::Unrecognised {
@@ -597,4 +600,7 @@ pub trait ActionProvider {
         ActionResult::NotImplemented
     }
 
+    fn create_systemd_service(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
+        ActionResult::NotImplemented
+    }
 }

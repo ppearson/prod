@@ -1,0 +1,12 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - createSystemdService:
+    name: my_new_service
+    description: My Lovely New Service
+    after: network.target
+    user: root
+    execStart: /opt/path/to/executable/file
+

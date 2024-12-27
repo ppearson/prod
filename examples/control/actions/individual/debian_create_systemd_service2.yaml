@@ -1,0 +1,14 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - createSystemdService:
+    name: my_new_service2
+    description: My Lovely New Service 2
+    after: network.target
+    before: other.target
+    user: peter
+    execStart: /opt/path/to/executable/file -tt
+    execStop: kill -42 $MAINPID
+
