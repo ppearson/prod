@@ -386,7 +386,7 @@ impl ControlManager {
                 },
                 ControlActionType::CreateSystemdService => {
                     provider.create_systemd_service(&mut connection, action)
-                }
+                },
                 ControlActionType::NotSet | ControlActionType::Unrecognised => {
                    ActionResult::FailedOther("Invalid Action Type".to_string())
                 }
