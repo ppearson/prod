@@ -409,6 +409,10 @@ impl ControlManager {
                         eprintln!("Error running action index {} : {} - {}",
                             count, action.action, str);
                     },
+                    ActionError::FailedOther(str) => {
+                        eprintln!("Error running action index {} : {} - {}",
+                            count, action.action, str);
+                    },
                     _ => {
                         eprintln!("Error running action index {} : {} - ...", count, action.action);
                     }
