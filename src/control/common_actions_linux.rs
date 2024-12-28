@@ -164,7 +164,12 @@ pub fn firewall(action_provider: &dyn ActionProvider, connection: &mut ControlSe
                 let ufw_command = format!("ufw --force {}", if is_enabled { "enable" } else { "disable"});
                 connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
 
+                // we can't just rely on stderr being useful here, i.e. if ufw wasn't installed or something...
                 if connection.conn.did_exit_with_error_code() {
+                    // stdout can sometimes be useful though, so look for obvious things to be a bit more helpful
+                    if connection.conn.get_previous_stdout_response().contains("ufw: command not found") {
+                        eprintln!("Error in 'firewall' action: 'ufw' does not seem to be installed.");
+                    }
                     return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&ufw_command,
                         action)));
                 }
@@ -176,7 +181,13 @@ pub fn firewall(action_provider: &dyn ActionProvider, connection: &mut ControlSe
             let ufw_command = format!("ufw {}", rule);
             connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
 
+            // we can't just rely on stderr being useful here when things fail, i.e. if ufw wasn't installed or something,
+            // but the exit code should always be indicative...
             if connection.conn.did_exit_with_error_code() {
+                // stdout can sometimes be useful though, so look for obvious things to be a bit more helpful
+                if connection.conn.get_previous_stdout_response().contains("ufw: command not found") {
+                    eprintln!("Error in 'firewall' action: 'ufw' does not seem to be installed.");
+                }
                 return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&ufw_command,
                     action)));
             }
@@ -514,13 +525,17 @@ pub fn create_systemd_service(action_provider: &dyn ActionProvider, connection: 
             action)));
     }
 
-    // now start it
-    let systemctrl_start_command = format!("systemctl start {}", service_name);
-    connection.conn.send_command(&action_provider.post_process_command(&systemctrl_start_command));
+    // check to see if we've been told not to start it now
+    let should_start = action.params.get_value_as_bool("startNow", true);
+    if should_start {
+        // now start it
+        let systemctrl_start_command = format!("systemctl start {}", service_name);
+        connection.conn.send_command(&action_provider.post_process_command(&systemctrl_start_command));
 
-    if connection.conn.did_exit_with_error_code() {
-        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&systemctrl_start_command,
-            action)));
+        if connection.conn.did_exit_with_error_code() {
+            return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&systemctrl_start_command,
+                action)));
+        }
     }
 
     // now enable it (think this starts it on boot... maybe that should be conditional, i.e. connected with the 'WantedBy' bit?)
@@ -532,10 +547,16 @@ pub fn create_systemd_service(action_provider: &dyn ActionProvider, connection: 
             action)));
     }
 
-    // check status...
-    if connection.conn.did_exit_with_error_code() {
-        return Err(ActionError::FailedCommand(
-            "Error: systemctl status did not return that the newly created service was actually started.".to_string()));
+    if should_start {
+        // check that it did start...
+        if connection.conn.did_exit_with_error_code() {
+            return Err(ActionError::FailedCommand(
+                "Error: systemctl status did not return that the newly created service was actually started.".to_string()));
+        }
+    }
+    else {
+        // TODO: maybe we can check some other status to check things are valid in the absence of starting it,
+        //       although maybe that's not needed?
     }
 
     Ok(())

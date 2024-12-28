@@ -288,7 +288,20 @@ pub fn transmit_file(action_provider: &dyn ActionProvider, connection: &mut Cont
                 connection.conn.send_command(&action_provider.post_process_command(&tar_cmd));
             }
 
-            // TODO: validate that extraction worked.
+            // validate that extraction worked.
+            // we can't *just* on stderr for this, as the terminal might not just print an error directly,
+            // i.e., if say unzip is not installed, we don't get any stderr output, so we have
+            // to rely on the exit code as well...
+            if let Some(strerr) = connection.conn.get_previous_stderr_response() {
+                return Err(ActionError::FailedCommand(format!("Failed to extract file: Err: {}", strerr)));
+            }
+
+            // also check exit code...
+            if connection.conn.did_exit_with_error_code() {
+                return Err(ActionError::FailedCommand(format!("Failed to extract file, extraction command returned a non-0 exit code.")));
+            }
+
+            // otherwise, it's hopefully succeeded.
         }
     }
 
