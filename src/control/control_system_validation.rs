@@ -129,8 +129,8 @@ impl SystemValidation {
 
     // whether this is enabled/set or not and so needs checking
     pub fn needs_checking(&self) -> bool {
-        return self.id_name.is_some() ||
-               self.release != SystemValidationReleaseVersion::None;
+        self.id_name.is_some() ||
+            self.release != SystemValidationReleaseVersion::None
     }
 
     // check the actual values from the host and see if they pass the

@@ -116,7 +116,7 @@ impl ControlConnectionOpenSSH {
 
         let string_contents = String::from_utf8_lossy(&byte_contents);
 
-        return Ok(string_contents.to_string());
+        Ok(string_contents.to_string())
     }
 
     pub fn send_text_file_contents_via_scp(&self, filepath: &str, mode: i32, contents: &str) -> Result<(), RemoteFileContentsControlError> {
@@ -140,7 +140,7 @@ impl ControlConnectionOpenSSH {
         remote_file.close().unwrap();
         remote_file.wait_close().unwrap();
         
-        return Ok(());
+        Ok(())
     }
 
     pub fn send_file_via_scp(&self, local_filepath: &str, dest_filepath: &str, mode: i32) -> Result<(), ()> {
@@ -186,7 +186,7 @@ impl ControlConnectionOpenSSH {
         remote_file.close().unwrap();
         remote_file.wait_close().unwrap();
 
-        return Ok(());
+        Ok(())
     }
 
     fn receive_file_via_scp(&self, remote_filepath: &str, local_filepath: &str) -> Result<(), ()> {
@@ -237,7 +237,7 @@ impl ControlConnectionOpenSSH {
         remote_file.close().unwrap();
         remote_file.wait_close().unwrap();
 
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -250,11 +250,11 @@ impl ControlConnection for ControlConnectionOpenSSH {
     }
 
     fn had_command_response(&self) -> bool {
-        return !self.prev_std_out.is_empty();
+        !self.prev_std_out.is_empty()
     }
 
     fn get_previous_stdout_response(&self) -> &str {
-        return &self.prev_std_out;
+        &self.prev_std_out
     }
 
     fn get_previous_stderr_response(&self) -> Option<&str> {
@@ -262,11 +262,11 @@ impl ControlConnection for ControlConnectionOpenSSH {
             return None;
         }
 
-        return Some(&self.prev_std_err);
+        Some(&self.prev_std_err)
     }
 
     fn get_exit_code(&self) -> Option<i32> {
-        return self.exit_code;
+        self.exit_code
     }
 
     fn did_exit_with_error_code(&self) -> bool {
@@ -274,25 +274,25 @@ impl ControlConnection for ControlConnectionOpenSSH {
             return ec != 0;
         }
         
-        return false;
+        false
     }
 
     // Note: these methods don't need to be &mut self for the OpenSSH version, but they
     //       do for the SSH-rs version, so...
     fn get_text_file_contents(&mut self, filepath: &str) -> Result<String, RemoteFileContentsControlError> {
-        return self.get_text_file_contents_via_scp(filepath);
+        self.get_text_file_contents_via_scp(filepath)
     }
 
     fn send_text_file_contents(&mut self, filepath: &str, mode: i32, contents: &str) -> Result<(), RemoteFileContentsControlError> {
-        return self.send_text_file_contents_via_scp(filepath, mode, contents);
+        self.send_text_file_contents_via_scp(filepath, mode, contents)
     }
 
     fn send_file(&mut self, local_filepath: &str, dest_filepath: &str, mode: i32) -> Result<(), ()> {
-        return self.send_file_via_scp(local_filepath, dest_filepath, mode);
+        self.send_file_via_scp(local_filepath, dest_filepath, mode)
     }
 
     fn receive_file(&mut self, local_filepath: &str, dest_filepath: &str) -> Result<(), ()> {
-        return self.receive_file_via_scp(local_filepath, dest_filepath);
+        self.receive_file_via_scp(local_filepath, dest_filepath)
     }
 
 }

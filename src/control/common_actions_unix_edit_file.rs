@@ -88,7 +88,7 @@ fn extract_edit_line_entry_items<T>(params: &Params, key: &str, fun: &dyn Fn(&BT
         }
     }
 
-    return line_entries;
+    line_entries
 }
 
 fn get_edit_line_entry_match_type(entry: &BTreeMap<String, ParamValue>) -> FileEditMatchType {
@@ -105,7 +105,7 @@ fn get_edit_line_entry_match_type(entry: &BTreeMap<String, ParamValue>) -> FileE
         _ => FileEditMatchType::Contains
     };
 
-    return match_type;
+    match_type
 }
 
 fn process_replace_line_entry(entry: &BTreeMap<String, ParamValue>) -> Option<ReplaceLineEntry> {
@@ -126,7 +126,7 @@ fn process_replace_line_entry(entry: &BTreeMap<String, ParamValue>) -> Option<Re
         return Some(ReplaceLineEntry::new(&match_string_val, &replace_string_val, false, match_type));
     }
 
-    return None;
+    None
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -188,7 +188,7 @@ fn process_insert_line_entry(entry: &BTreeMap<String, ParamValue>) -> Option<Ins
         return Some(InsertLineEntry::new(position_type, &match_string_val, &insert_string_val, false, match_type));
     }
 
-    return None;
+    None
 }
 
 struct CommentLineEntry {
@@ -228,7 +228,7 @@ fn process_comment_line_entry(entry: &BTreeMap<String, ParamValue>) -> Option<Co
         return Some(CommentLineEntry::new(&match_string_val, &comment_char_val, false, match_type));
     }
 
-    return None;
+    None
 }
 
 // TODO: this is pretty nasty and hacky, but works for all cases I want so far...

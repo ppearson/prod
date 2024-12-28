@@ -141,7 +141,7 @@ impl ControlConnectionSshRs {
         if let Err(err) = res {
             return Err(RemoteFileContentsControlError::TransferError(err.to_string()));
         }
-        return Ok(());
+        Ok(())
     }
 
     pub fn send_file_via_scp(&mut self, local_filepath: &str, dest_filepath: &str, _mode: i32) -> Result<(), ()> {
@@ -162,7 +162,7 @@ impl ControlConnectionSshRs {
             return Err(());
         }
 
-        return Ok(());
+        Ok(())
     }
 
     fn receive_file_via_scp(&mut self, remote_filepath: &str, local_filepath: &str) -> Result<(), ()> {
@@ -178,7 +178,7 @@ impl ControlConnectionSshRs {
             return Err(());
         }
 
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -203,7 +203,7 @@ impl ControlConnection for ControlConnectionSshRs {
             return None;
         }
 
-        return Some(&self.prev_std_err);
+        Some(&self.prev_std_err)
     }
 
     fn get_exit_code(&self) -> Option<i32> {
@@ -215,23 +215,23 @@ impl ControlConnection for ControlConnectionSshRs {
             return ec != 0;
         }
         
-        return false;
+        false
     }
 
     fn get_text_file_contents(&mut self, filepath: &str) -> Result<String, RemoteFileContentsControlError> {
-        return self.get_text_file_contents_via_scp(filepath);
+        self.get_text_file_contents_via_scp(filepath)
     }
 
     fn send_text_file_contents(&mut self, filepath: &str, mode: i32, contents: &str) -> Result<(), RemoteFileContentsControlError> {
-        return self.send_text_file_contents_via_scp(filepath, mode, contents);
+        self.send_text_file_contents_via_scp(filepath, mode, contents)
     }
 
     fn send_file(&mut self, local_filepath: &str, dest_filepath: &str, mode: i32) -> Result<(), ()> {
-        return self.send_file_via_scp(local_filepath, dest_filepath, mode);
+        self.send_file_via_scp(local_filepath, dest_filepath, mode)
     }
 
     fn receive_file(&mut self, local_filepath: &str, dest_filepath: &str) -> Result<(), ()> {
-        return self.receive_file_via_scp(local_filepath, dest_filepath);
+        self.receive_file_via_scp(local_filepath, dest_filepath)
     }
 
 }

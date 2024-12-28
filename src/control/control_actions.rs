@@ -458,10 +458,10 @@ impl ControlAction {
     // exist, it returns an Err ActionResult::InvalidParams for convenient fall-through...
     pub fn get_required_string_param(&self, param_name: &str) -> Result<String, ActionError> {
         if let Some(value) = self.params.get_string_value(param_name) {
-            return Ok(value);
+            Ok(value)
         }
         else {
-            return Err(ActionError::InvalidParams(format!("The '{}' parameter was not specified.", param_name)));
+            Err(ActionError::InvalidParams(format!("The '{}' parameter was not specified.", param_name)))
         }
     } 
 }

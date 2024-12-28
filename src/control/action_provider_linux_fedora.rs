@@ -44,24 +44,24 @@ impl ActionProvider for AProviderLinuxFedora {
     }
 
     fn generic_command(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_unix::generic_command(self, connection, action);
+        common_actions_unix::generic_command(self, connection, action)
     }
 
     // this is not really an Action, as it doesn't modify anything, it just returns values, but...
     fn get_system_details(&self, connection: &mut ControlSession) -> Result<SystemDetailsResult, GenericError> {
-        return common_actions_linux::get_system_details(self, connection);
+        common_actions_linux::get_system_details(self, connection)
     }
 
     fn add_user(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_linux::add_user(self, connection, action);
+        common_actions_linux::add_user(self, connection, action)
     }
 
     fn create_directory(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_unix::create_directory(self, connection, action);
+        common_actions_unix::create_directory(self, connection, action)
     }
 
     fn remove_directory(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_unix::remove_directory(self, connection, action);
+        common_actions_unix::remove_directory(self, connection, action)
     }
 
     fn install_packages(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
@@ -138,64 +138,64 @@ impl ActionProvider for AProviderLinuxFedora {
     }
 
     fn systemctrl(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_linux::systemctrl(self, connection, action);
+        common_actions_linux::systemctrl(self, connection, action)
     }
 
     fn firewall(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        // fedora apparently needs ufw firewall enabled first before adding rules, despite the
-        // man page saying it's supported, and it working on debian/ubuntu
-        return common_actions_linux::firewall(self, connection, action, true);
+        // fedora apparently needs ufw firewall started first before adding rules, despite the
+        // man page saying it's supported, and it working that way on debian/ubuntu
+        common_actions_linux::firewall(self, connection, action, true)
     }
 
     fn edit_file(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_unix::edit_file(self, connection, action);
+        common_actions_unix::edit_file(self, connection, action)
     }
 
     fn copy_path(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_unix::copy_path(self, connection, action);
+        common_actions_unix::copy_path(self, connection, action)
     }
 
     fn remove_file(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_unix::remove_file(self, connection, action);
+        common_actions_unix::remove_file(self, connection, action)
     }
 
     fn download_file(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_unix::download_file(self, connection, action);
+        common_actions_unix::download_file(self, connection, action)
     }
 
     fn transmit_file(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_unix::transmit_file(self, connection, action);
+        common_actions_unix::transmit_file(self, connection, action)
     }
 
     fn receive_file(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_unix::receive_file(self, connection, action);
+        common_actions_unix::receive_file(self, connection, action)
     }
 
     fn create_symlink(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_unix::create_symlink(self, connection, action);
+        common_actions_unix::create_symlink(self, connection, action)
     }
 
     fn set_time_zone(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_linux::set_time_zone(self, connection, action);
+        common_actions_linux::set_time_zone(self, connection, action)
     }
 
     fn disable_swap(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_linux::disable_swap(self, connection, action);
+        common_actions_linux::disable_swap(self, connection, action)
     }
 
     fn create_file(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_unix::create_file(self, connection, action);
+        common_actions_unix::create_file(self, connection, action)
     }
 
     fn add_group(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_linux::add_group(self, connection, action);
+        common_actions_linux::add_group(self, connection, action)
     }
 
     fn set_hostname(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_linux::set_hostname(self, connection, action);
+        common_actions_linux::set_hostname(self, connection, action)
     }
 
     fn create_systemd_service(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
-        return common_actions_linux::create_systemd_service(self, connection, action);
+        common_actions_linux::create_systemd_service(self, connection, action)
     }
 }

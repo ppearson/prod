@@ -460,7 +460,7 @@ pub fn set_hostname(action_provider: &dyn ActionProvider, connection: &mut Contr
     }
 
     // otherwise, something likely went wrong...
-    return Err(ActionError::FailedCommand("setHostname action could not verify that hostname was set.".to_string()));
+    Err(ActionError::FailedCommand("setHostname action could not verify that hostname was set.".to_string()))
 }
 
 pub fn create_systemd_service(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
