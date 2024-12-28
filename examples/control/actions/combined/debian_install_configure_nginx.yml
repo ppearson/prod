@@ -11,6 +11,7 @@
     type: ufw
     enabled: true
     rules:
+      - "allow ssh"
       - "allow 'Nginx Full'"
  - createDirectory:
     path: /var/www/testsite1.com/
