@@ -15,7 +15,7 @@
 
 use crate::params::{ParamValue, Params};
 
-use super::control_actions::{ActionProvider, ActionResult, ControlAction};
+use super::control_actions::{ActionProvider, ActionError, ControlAction};
 use super::control_common::ControlSession;
 
 use super::terminal_helpers_linux;
@@ -49,7 +49,8 @@ impl ReplaceLineEntry {
     }
 }
 
-fn extract_edit_line_entry_items<T>(params: &Params, key: &str, fun: &dyn Fn(&BTreeMap<String, ParamValue>) -> Option<T>) -> Vec<T> {
+fn extract_edit_line_entry_items<T>(params: &Params, key: &str, fun: &dyn Fn(&BTreeMap<String, ParamValue>
+) -> Option<T>) -> Vec<T> {
     let mut line_entries = Vec::with_capacity(0);
 
     let param = params.get_raw_value(key);
@@ -144,7 +145,9 @@ struct InsertLineEntry {
 }
 
 impl InsertLineEntry {
-    pub fn new(position_type: InsertLinePositionType, match_string: &str, insert_string: &str, report_failure: bool, match_type: FileEditMatchType) -> InsertLineEntry {
+    pub fn new(position_type: InsertLinePositionType, match_string: &str, insert_string: &str, report_failure: bool,
+        match_type: FileEditMatchType
+    ) -> InsertLineEntry {
         InsertLineEntry { position_type, match_string: match_string.to_string(), insert_string: insert_string.to_string(),
              report_failure, replaced: false, match_type }
     }
@@ -229,28 +232,24 @@ fn process_comment_line_entry(entry: &BTreeMap<String, ParamValue>) -> Option<Co
 }
 
 // TODO: this is pretty nasty and hacky, but works for all cases I want so far...
-pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-    let filepath = action.params.get_string_value("filepath");
-    if filepath.is_none() {
-        return ActionResult::InvalidParams("The 'filepath' parameter was not specified.".to_string());
-    }
-
+pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
+    let filepath = action.get_required_string_param("filepath")?;
+  
     let replace_line_items = extract_edit_line_entry_items(&action.params, "replaceLine", &process_replace_line_entry);
     let insert_line_items = extract_edit_line_entry_items(&action.params, "insertLine", &process_insert_line_entry);
     let comment_line_items = extract_edit_line_entry_items(&action.params, "commentLine", &process_comment_line_entry);
     if replace_line_items.is_empty() && insert_line_items.is_empty() && comment_line_items.is_empty() {
         eprintln!("Error: editFile Control Action had no items to perform...");
-        return ActionResult::InvalidParams("".to_string());
+        return Err(ActionError::InvalidParams("".to_string()));
     }
-
-    let filepath = filepath.unwrap();
     
     if action.params.get_value_as_bool("backup", false) {
         // TODO: something more robust than this...
         let mv_command = format!("cp {0} {0}.bak", filepath);
         connection.conn.send_command(&action_provider.post_process_command(&mv_command));
         if let Some(strerr) = connection.conn.get_previous_stderr_response() {
-            return ActionResult::FailedOther(format!("Error making backup copy of remote file path: {}", strerr));
+            return Err(ActionError::FailedOther(format!("Error making backup copy of remote file path: {}", strerr)));
         }
     }
 
@@ -259,7 +258,7 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
     let stat_command = format!("stat {}", filepath);
     connection.conn.send_command(&action_provider.post_process_command(&stat_command));
     if let Some(strerr) = connection.conn.get_previous_stderr_response() {
-        return ActionResult::FailedOther(format!("Error accessing remote file path: {}", strerr));
+        return Err(ActionError::FailedOther(format!("Error accessing remote file path: {}", strerr)));
     }
 
     let stat_response = connection.conn.get_previous_stdout_response().to_string();
@@ -270,7 +269,7 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
     let string_contents = connection.conn.get_text_file_contents(&filepath).unwrap();
     if string_contents.is_empty() {
         eprintln!("Error: remote file: {} has empty contents.", filepath);
-        return ActionResult::FailedOther("".to_string());
+        return Err(ActionError::FailedOther("".to_string()));
     }
     let file_contents_lines = string_contents.lines();
 
@@ -371,10 +370,10 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
     
     let send_res = connection.conn.send_text_file_contents(&filepath, mode, &new_file_contents_string);
     if let Err(err) = send_res {
-        return ActionResult::FailedOther(format!("Failed to send file contents back to host: {}", err));
+        return Err(ActionError::FailedOther(format!("Failed to send file contents back to host: {}", err)));
     }
 
     // TODO: change user and group of file to cached value from beforehand...
 
-    return ActionResult::Success;
+    Ok(())
 }

@@ -15,13 +15,14 @@
 
 use crate::control::terminal_helpers_linux;
 
-use super::control_actions::{ActionProvider, ActionResult, ControlAction, GenericError, SystemDetailsResult};
+use super::control_actions::{ActionProvider, ActionError, ControlAction, GenericError, SystemDetailsResult};
 use super::control_common::ControlSession;
 
 use rpassword::read_password;
 
 // Note: this isn't strictly-speaking an Action which modifies any system state, it just returns details...
-pub fn get_system_details(action_provider: &dyn ActionProvider, connection: &mut ControlSession) -> Result<SystemDetailsResult, GenericError> {
+pub fn get_system_details(action_provider: &dyn ActionProvider, connection: &mut ControlSession
+) -> Result<SystemDetailsResult, GenericError> {
     // for the moment, assume the system's always going to be Linux,
     // but in the future we might need to more gracefully handle errors and attempt to work out
     // what platform it is...
@@ -58,25 +59,14 @@ pub fn get_system_details(action_provider: &dyn ActionProvider, connection: &mut
     Ok(SystemDetailsResult { distr_id: dist_id, release })
 }
 
-pub fn add_user(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+pub fn add_user(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
     // use useradd command which should be common across Linux distros...
-
-    // validate params
-    if !action.params.has_value("username") {
-        return ActionResult::InvalidParams("The 'username' parameter was not specified.".to_string());
-    }
-    if !action.params.has_value("password") {
-        return ActionResult::InvalidParams("The 'password' parameter was not specified.".to_string());
-    }
 
     let mut useradd_command_options = String::new();
 
-    let user = action.params.get_string_value("username").unwrap();
-    if user.is_empty() {
-        return ActionResult::InvalidParams("The 'username' parameter must be a valid string.".to_string());
-    }
-
-    let mut password = action.params.get_string_value("password").unwrap();
+    let user = action.get_required_string_param("username")?;
+    let mut password = action.get_required_string_param("password")?;
     if password == "$PROMPT" {
         eprintln!("Please enter password to set for new user '{}':", user);
         password = read_password().unwrap();
@@ -125,7 +115,7 @@ pub fn add_user(action_provider: &dyn ActionProvider, connection: &mut ControlSe
 
     // check response is nothing...
     if connection.conn.had_command_response() {
-        return ActionResult::FailedCommand("Unexpected response from useradd command.".to_string());
+        return Err(ActionError::FailedCommand("Unexpected response from useradd command.".to_string()));
     }
 
     // double make sure we don't add command to history here, even though post_process_command() should do it
@@ -136,31 +126,28 @@ pub fn add_user(action_provider: &dyn ActionProvider, connection: &mut ControlSe
     let change_password_command = format!(" echo -e '{}:{}' | chpasswd", user, password);
     connection.conn.send_command(&action_provider.post_process_command(&change_password_command));
 
-    return ActionResult::Success;
+    Ok(())
 }
 
-pub fn systemctrl(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-    // validate params
-    if !action.params.has_value("action") || !action.params.has_value("service") {
-        return ActionResult::InvalidParams("".to_string());
-    }
-
-    let service = action.params.get_string_value("service").unwrap();
-    let service_action = action.params.get_string_value("action").unwrap();
+pub fn systemctrl(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
+    let service = action.get_required_string_param("service")?;
+    let service_action = action.get_required_string_param("action")?;
 
     let systemctrl_command = format!("systemctl {} {}", service_action, service);
     
     connection.conn.send_command(&action_provider.post_process_command(&systemctrl_command));
 
     if connection.conn.did_exit_with_error_code() {
-        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&systemctrl_command,
-            action));
+        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&systemctrl_command,
+            action)));
     }
 
-    return ActionResult::Success;
+    Ok(())
 }
 
-pub fn firewall(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction, start_first: bool) -> ActionResult {
+pub fn firewall(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction, start_first: bool
+) -> Result<(), ActionError> {
     let firewall_type = action.params.get_string_value_with_default("type", "ufw");
     if firewall_type == "ufw" {
         // incredibly basic for the moment...
@@ -178,8 +165,8 @@ pub fn firewall(action_provider: &dyn ActionProvider, connection: &mut ControlSe
                 connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
 
                 if connection.conn.did_exit_with_error_code() {
-                    return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&ufw_command,
-                        action));
+                    return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&ufw_command,
+                        action)));
                 }
             }
         }
@@ -190,8 +177,8 @@ pub fn firewall(action_provider: &dyn ActionProvider, connection: &mut ControlSe
             connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
 
             if connection.conn.did_exit_with_error_code() {
-                return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&ufw_command,
-                    action));
+                return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&ufw_command,
+                    action)));
             }
         }
 
@@ -202,48 +189,42 @@ pub fn firewall(action_provider: &dyn ActionProvider, connection: &mut ControlSe
                 connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
 
                 if connection.conn.did_exit_with_error_code() {
-                    return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&ufw_command,
-                        action));
+                    return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&ufw_command,
+                        action)));
                 }
             }
         }
     }
     else {
         // only support this type for the moment...
-        return ActionResult::InvalidParams("Invalid firewall type param".to_string());
+        return Err(ActionError::InvalidParams("Invalid firewall type param".to_string()));
     }
 
-    return ActionResult::Success;
+    Ok(())
 }
 
-pub fn set_time_zone(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-    let time_zone = action.params.get_string_value("timeZone");
-    if time_zone.is_none() {
-        return ActionResult::InvalidParams("The 'timeZone' parameter was not specified.".to_string());
-    }
-    let time_zone = time_zone.unwrap();
-
+pub fn set_time_zone(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
+    let time_zone = action.get_required_string_param("timeZone")?;
+   
     // "UTC", "Pacific/Auckland", "Europe/London"
 
     let timedatectl_command = format!("timedatectl {}", time_zone);
     connection.conn.send_command(&action_provider.post_process_command(&timedatectl_command));
 
     if connection.conn.did_exit_with_error_code() {
-        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&timedatectl_command,
-            action));
+        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&timedatectl_command,
+            action)));
     }
 
     // TODO: also restart things like crond that might have been affected?
 
-    return ActionResult::Success;
+    Ok(())
 }
 
-pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-    let filename = action.params.get_string_value("filename");
-    if filename.is_none() {
-        return ActionResult::InvalidParams("The 'filename' parameter was not specified.".to_string());
-    }
-    let filename = filename.unwrap();
+pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
+    let filename = action.get_required_string_param("filename")?;
 
     // Note: filename can be '*' to delete all active swapfiles, however it needs to be quoted in YAML
     //       to be parsed correctly...
@@ -253,14 +234,14 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
     connection.conn.send_command(&action_provider.post_process_command(&list_swapfiles_command));
 
     if connection.conn.did_exit_with_error_code() {
-        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&list_swapfiles_command,
-            action));
+        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&list_swapfiles_command,
+            action)));
     }
 
     // if there is already a swapfile configured, the stdout output should be more than one line...
     if connection.conn.get_previous_stdout_response().is_empty() {
         // stdout output was empty, which isn't expected...
-        return ActionResult::FailedCommand("disableSwap error with unexpected response to 'cat /proc/swaps' command.".to_string());
+        return Err(ActionError::FailedCommand("disableSwap error with unexpected response to 'cat /proc/swaps' command.".to_string()));
     }
 
     let mut swapfile_names_to_delete = Vec::with_capacity(1);
@@ -270,7 +251,7 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
         // swapfiles, so just return success...
         // TODO: we might still have a file on disk if something was done manually? (but how to know
         //       about it other than fstab? likely not worth worrying about?)
-        return ActionResult::Success;
+        return Ok(());
     }
     else if swap_file_lines.len() > 1 {
         for data_line in swap_file_lines.iter().skip(1) {
@@ -284,11 +265,11 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
     }
     else {
         // Not really sure how we'd reach here unless the response was malformed...
-        return ActionResult::FailedCommand("disableSwap error with unexpected response2".to_string());
+        return Err(ActionError::FailedCommand("disableSwap error with unexpected response2".to_string()));
     }
 
     if swapfile_names_to_delete.is_empty() {
-        return ActionResult::FailedOther("disableSwap error: couldn't find specified swapfile to disable / delete.".to_string());
+        return Err(ActionError::FailedOther("disableSwap error: couldn't find specified swapfile to disable / delete.".to_string()));
     }
 
     if filename == "*" {
@@ -297,8 +278,8 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
         connection.conn.send_command(&action_provider.post_process_command(&swapoff_command));
 
         if connection.conn.did_exit_with_error_code() {
-            return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&swapoff_command,
-                action));
+            return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&swapoff_command,
+                action)));
         }
     }
     else {
@@ -310,8 +291,8 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
         connection.conn.send_command(&action_provider.post_process_command(&swapoff_command));
 
         if connection.conn.did_exit_with_error_code() {
-            return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&swapoff_command,
-                action));
+            return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&swapoff_command,
+                action)));
         }
     }
     
@@ -323,7 +304,7 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
     let fstab_string_contents = connection.conn.get_text_file_contents(FSTAB_FILE_PATH).unwrap();
     if fstab_string_contents.is_empty() {
         eprintln!("Error: /etc/fstab remote file has empty contents.");
-        return ActionResult::FailedCommand("".to_string());
+        return Err(ActionError::FailedCommand("".to_string()));
     }
     let fstab_contents_lines = fstab_string_contents.lines();
 
@@ -352,7 +333,7 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
     let stat_command = format!("stat {}", FSTAB_FILE_PATH);
     connection.conn.send_command(&action_provider.post_process_command(&stat_command));
     if let Some(strerr) = connection.conn.get_previous_stderr_response() {
-        return ActionResult::FailedOther(format!("Error accessing remote fstab path: {}", strerr));
+        return Err(ActionError::FailedOther(format!("Error accessing remote fstab path: {}", strerr)));
     }
 
     let stat_response = connection.conn.get_previous_stdout_response().to_string();
@@ -370,7 +351,7 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
 
     let send_res = connection.conn.send_text_file_contents(FSTAB_FILE_PATH, mode, &new_file_contents_string);
     if send_res.is_err() {
-        return ActionResult::FailedOther("Error: failed to write modified /etc/fstab file.".to_string());
+        return Err(ActionError::FailedOther("Error: failed to write modified /etc/fstab file.".to_string()));
     }
 
     // now delete any of the swapfiles...
@@ -379,30 +360,25 @@ pub fn disable_swap(action_provider: &dyn ActionProvider, connection: &mut Contr
         let rm_command = format!("rm {}", swap_file);
         connection.conn.send_command(&action_provider.post_process_command(&rm_command));
         if let Some(strerr) = connection.conn.get_previous_stderr_response() {
-            return ActionResult::FailedCommand(format!("Error deleting swapfile file: {}", strerr));
+            return Err(ActionError::FailedCommand(format!("Error deleting swapfile file: {}", strerr)));
         }
     }
     
-    return ActionResult::Success;
+    Ok(())
 }
 
-pub fn add_group(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+pub fn add_group(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
     // use groupadd and usermod commands which should be common across Linux distros...
-
-    // validate params
-    if !action.params.has_value("name") {
-        return ActionResult::InvalidParams("The 'name' parameter was not specified.".to_string());
-    }
-
-    let group_name = action.params.get_string_value("name").unwrap();
+    let group_name = action.get_required_string_param("name")?;
 
     let groupadd_full_command = format!("groupadd {}", group_name);
 
     connection.conn.send_command(&action_provider.post_process_command(&groupadd_full_command));
 
     if connection.conn.did_exit_with_error_code() {
-        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&groupadd_full_command,
-            action));
+        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&groupadd_full_command,
+            action)));
     }
 
     // now add users specified to the group
@@ -411,8 +387,8 @@ pub fn add_group(action_provider: &dyn ActionProvider, connection: &mut ControlS
         let usermod_command = format!("usermod -aG {} {}", group_name, action.params.get_string_value_with_default("user", ""));
         connection.conn.send_command(&action_provider.post_process_command(&usermod_command));
         if connection.conn.did_exit_with_error_code() {
-            return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&usermod_command,
-                action));
+            return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&usermod_command,
+                action)));
         }
     }
     else if action.params.has_value("users") {
@@ -422,32 +398,27 @@ pub fn add_group(action_provider: &dyn ActionProvider, connection: &mut ControlS
             let usermod_command = format!("usermod -aG {} {}", group_name, user);
             connection.conn.send_command(&action_provider.post_process_command(&usermod_command));
             if connection.conn.did_exit_with_error_code() {
-                return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&usermod_command,
-                    action));
+                return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&usermod_command,
+                    action)));
             }
         }
     }
 
-    return ActionResult::Success;
+    Ok(())
 }
 
-pub fn set_hostname(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-    // validate param
-    if !action.params.has_value("hostname") {
-        return ActionResult::InvalidParams("The 'hostname' parameter was not specified.".to_string());
-    }
-
+pub fn set_hostname(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
     // assume for the moment that systemd is installed, so hostnamectl can be used.
-
-    let host_name = action.params.get_string_value("hostname").unwrap();
+    let host_name = action.get_required_string_param("hostname")?;
 
     let hostnamectrl_full_command = format!("hostnamectl set-hostname {}", host_name);
 
     connection.conn.send_command(&action_provider.post_process_command(&hostnamectrl_full_command));
 
     if connection.conn.did_exit_with_error_code() {
-        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&hostnamectrl_full_command,
-            action));
+        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&hostnamectrl_full_command,
+            action)));
     }
 
     // validate that it was set
@@ -455,14 +426,14 @@ pub fn set_hostname(action_provider: &dyn ActionProvider, connection: &mut Contr
     connection.conn.send_command(&action_provider.post_process_command(&hostnamectrl));
 
     if connection.conn.did_exit_with_error_code() {
-        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&hostnamectrl,
-            action));
+        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&hostnamectrl,
+            action)));
     }
 
     // check we had output to stdout...
     if connection.conn.get_previous_stdout_response().is_empty() {
         // stdout output was empty, which isn't expected...
-        return ActionResult::FailedCommand("setHostname error with unexpected response to 'hostnamectl' command.".to_string());
+        return Err(ActionError::FailedCommand("setHostname error with unexpected response to 'hostnamectl' command.".to_string()));
     }
 
     for line in connection.conn.get_previous_stdout_response().lines() {
@@ -472,37 +443,21 @@ pub fn set_hostname(action_provider: &dyn ActionProvider, connection: &mut Contr
         if let Some(result) = stripped_line.strip_prefix("Static hostname:") {
             if result.trim() == host_name {
                 // it was set successfully...
-                return ActionResult::Success;
+                return Ok(())
             }
         }
     }
 
     // otherwise, something likely went wrong...
-    return ActionResult::FailedCommand("setHostname action could not verify that hostname was set.".to_string());
+    return Err(ActionError::FailedCommand("setHostname action could not verify that hostname was set.".to_string()));
 }
 
-pub fn create_systemd_service(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-    // validate params
-    if !action.params.has_value("name") {
-        return ActionResult::InvalidParams("The 'name' parameter was not specified.".to_string());
-    }
-
-    if !action.params.has_value("description") {
-        return ActionResult::InvalidParams("The 'description' parameter was not specified.".to_string());
-    }
-
-    if !action.params.has_value("user") {
-        return ActionResult::InvalidParams("The 'user' parameter was not specified.".to_string());
-    }
-
-    if !action.params.has_value("execStart") {
-        return ActionResult::InvalidParams("The 'execStart' parameter was not specified.".to_string());
-    }
-
-    let service_name = action.params.get_string_value("name").unwrap();
-    let description = action.params.get_string_value("description").unwrap();
-    let user = action.params.get_string_value("user").unwrap();
-    let exec_start = action.params.get_string_value("execStart").unwrap();
+pub fn create_systemd_service(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
+    let service_name = action.get_required_string_param("name")?;
+    let description = action.get_required_string_param("description")?;
+    let user = action.get_required_string_param("user")?;
+    let exec_start = action.get_required_string_param("execStart")?;
 
     // Note: docs here: https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#Options
 
@@ -546,8 +501,8 @@ pub fn create_systemd_service(action_provider: &dyn ActionProvider, connection: 
     //       will only be useable with the 'root' user being enabled.
     let res = connection.conn.send_text_file_contents(&unit_service_file_path, 0o644, &file_content);
     if let Err(err) = res {
-        return ActionResult::FailedCommand(format!("Error creating remote file for new service: '{}', error: {}",
-        unit_service_file_path, err));
+        return Err(ActionError::FailedCommand(format!("Error creating remote file for new service: '{}', error: {}",
+        unit_service_file_path, err)));
     }
 
     // reload it
@@ -555,8 +510,8 @@ pub fn create_systemd_service(action_provider: &dyn ActionProvider, connection: 
     let reload_command = "sudo systemctl daemon-reload";
     connection.conn.send_command(&action_provider.post_process_command(reload_command));
     if connection.conn.did_exit_with_error_code() {
-        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(reload_command,
-            action));
+        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(reload_command,
+            action)));
     }
 
     // now start it
@@ -564,8 +519,8 @@ pub fn create_systemd_service(action_provider: &dyn ActionProvider, connection: 
     connection.conn.send_command(&action_provider.post_process_command(&systemctrl_start_command));
 
     if connection.conn.did_exit_with_error_code() {
-        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&systemctrl_start_command,
-            action));
+        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&systemctrl_start_command,
+            action)));
     }
 
     // now enable it (think this starts it on boot... maybe that should be conditional, i.e. connected with the 'WantedBy' bit?)
@@ -573,14 +528,15 @@ pub fn create_systemd_service(action_provider: &dyn ActionProvider, connection: 
     connection.conn.send_command(&action_provider.post_process_command(&systemctrl_enable_command));
 
     if connection.conn.did_exit_with_error_code() {
-        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&systemctrl_enable_command,
-            action));
+        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&systemctrl_enable_command,
+            action)));
     }
 
     // check status...
     if connection.conn.did_exit_with_error_code() {
-        return ActionResult::FailedCommand("Error: systemctl status did not return that the newly created service was actually started.".to_string());
+        return Err(ActionError::FailedCommand(
+            "Error: systemctl status did not return that the newly created service was actually started.".to_string()));
     }
 
-    return ActionResult::Success;
+    Ok(())
 }

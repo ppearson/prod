@@ -97,14 +97,13 @@ impl Ord for ControlActionType {
 */
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ActionResult {
+pub enum ActionError {
     NotImplemented,
     InvalidParams(String),
     CantConnect,
     AuthenticationIssue,
     FailedCommand(String),
     FailedOther(String),
-    Success
 }
 
 #[derive(Clone, Debug)]
@@ -454,6 +453,17 @@ impl ControlAction {
     pub fn new() -> ControlAction {
         ControlAction { action: ControlActionType::NotSet, params: Params::new() }
     }
+
+    // convenience method to get an action parameter which is required as a string, and if it doesn't
+    // exist, it returns an Err ActionResult::InvalidParams for convenient fall-through...
+    pub fn get_required_string_param(&self, param_name: &str) -> Result<String, ActionError> {
+        if let Some(value) = self.params.get_string_value(param_name) {
+            return Ok(value);
+        }
+        else {
+            return Err(ActionError::InvalidParams(format!("The '{}' parameter was not specified.", param_name)));
+        }
+    } 
 }
 
 // for retrieving info about host systems.
@@ -515,8 +525,8 @@ pub trait ActionProvider {
         final_command
     }
 
-    fn generic_command(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn generic_command(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
     // this is not really an Action, as it doesn't modify anything, it just returns values, but...
@@ -524,83 +534,83 @@ pub trait ActionProvider {
         Err(GenericError::NotImplemented)
     }
 
-    fn add_user(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn add_user(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn create_directory(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn create_directory(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn remove_directory(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn remove_directory(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn install_packages(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn install_packages(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn remove_packages(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn remove_packages(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn systemctrl(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn systemctrl(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn firewall(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn firewall(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn edit_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn edit_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn copy_path(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn copy_path(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn remove_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn remove_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn download_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn download_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn transmit_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn transmit_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn receive_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn receive_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn create_symlink(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn create_symlink(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn set_time_zone(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn set_time_zone(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn disable_swap(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn disable_swap(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn create_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn create_file(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn add_group(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn add_group(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn set_hostname(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn set_hostname(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 
-    fn create_systemd_service(&self, _connection: &mut ControlSession, _action: &ControlAction) -> ActionResult {
-        ActionResult::NotImplemented
+    fn create_systemd_service(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
     }
 }

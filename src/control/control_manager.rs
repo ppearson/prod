@@ -19,7 +19,7 @@ extern crate rpassword;
 
 use rpassword::read_password;
 
-use crate::control::control_actions::{ActionResult, ControlActionType};
+use crate::control::control_actions::{ActionError, ControlActionType};
 use crate::control::control_common::{ControlSession, ControlSessionParams, ControlSessionUserAuth, UserAuthUserPass};
 
 use super::control_actions::{ControlActions, ActionProvider};
@@ -306,7 +306,7 @@ impl ControlManager {
 
 /*
         let closure = || provider.add_user(&mut connection, &actions.actions[0]);
-        let mut map : BTreeMap<ControlActionType, &dyn Fn(&mut ControlConnection, &ControlAction) -> ActionResult> = BTreeMap::new();
+        let mut map : BTreeMap<ControlActionType, &dyn Fn(&mut ControlConnection, &ControlAction) -> Result<(), ActionError>> = BTreeMap::new();
         map.insert(ControlActionType::AddUser, &closure as &dyn Fn(_, _) -> _);
 */
 
@@ -388,44 +388,32 @@ impl ControlManager {
                     provider.create_systemd_service(&mut connection, action)
                 },
                 ControlActionType::NotSet | ControlActionType::Unrecognised => {
-                   ActionResult::FailedOther("Invalid Action Type".to_string())
+                   Err(ActionError::FailedOther("Invalid Action Type".to_string()))
                 }
             };
 
             // TODO: would be nice to be able to pre-perform these NotImplemented and InvalidParams checks on all the actions reliably
             //       before we start running any of them...
 
-
-            if result == ActionResult::NotImplemented {
-                eprintln!("Error running action index {} : {} - the action provider does not implement this action...",
+            if let Err(err_result) = result {
+                match err_result {
+                    ActionError::NotImplemented => {
+                        eprintln!("Error running action index {} : {} - the action provider does not implement this action...",
                             count, action.action);
-                success = false;
-                break;
-            }
-
-            if let ActionResult::InvalidParams(str) = result {
-                eprintln!("Error running action index {} : {} - invalid parameters were provided for this action: {}",
+                    },
+                    ActionError::InvalidParams(str) => {
+                        eprintln!("Error running action index {} : {} - invalid parameters were provided for this action: {}",
                             count, action.action, str);
-                success = false;
-                break;
-            }
-
-            if let ActionResult::FailedCommand(str) = result {
-                eprintln!("Error running action index {} : {} - {}",
+                    },
+                    ActionError::FailedCommand(str) => {
+                        eprintln!("Error running action index {} : {} - {}",
                             count, action.action, str);
-                success = false;
-                break;
-            }
+                    },
+                    _ => {
+                        eprintln!("Error running action index {} : {} - ...", count, action.action);
+                    }
+                }
 
-            if let ActionResult::FailedOther(str) = result {
-                eprintln!("Error running action index {} : {} - {}",
-                            count, action.action, str);
-                success = false;
-                break;
-            }
-
-            if result != ActionResult::Success {
-                eprintln!("Error running action index {} : {} - ...", count, action.action);
                 success = false;
                 break;
             }

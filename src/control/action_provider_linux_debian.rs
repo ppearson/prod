@@ -16,7 +16,7 @@
 use super::common_actions_linux;
 use super::common_actions_unix;
 
-use super::control_actions::{ActionProvider, ActionResult, ControlAction, GenericError, SystemDetailsResult};
+use super::control_actions::{ActionProvider, ActionError, ControlAction, GenericError, SystemDetailsResult};
 use super::control_common::{ControlSession, ControlSessionParams};
 
 pub struct AProviderLinuxDebian {
@@ -43,7 +43,7 @@ impl ActionProvider for AProviderLinuxDebian {
         return Some(&self.session_params);
     }
 
-    fn generic_command(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn generic_command(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_unix::generic_command(self, connection, action);
     }
 
@@ -52,19 +52,19 @@ impl ActionProvider for AProviderLinuxDebian {
         return common_actions_linux::get_system_details(self, connection);
     }
 
-    fn add_user(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn add_user(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_linux::add_user(self, connection, action);
     }
 
-    fn create_directory(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn create_directory(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_unix::create_directory(self, connection, action);
     }
 
-    fn remove_directory(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn remove_directory(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_unix::remove_directory(self, connection, action);
     }
 
-    fn install_packages(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn install_packages(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         // use apt-get, because the commands for that will apparently be much more stable, compared to apt
         // which might change as it's designed to be more user-facing...
 
@@ -78,11 +78,11 @@ impl ActionProvider for AProviderLinuxDebian {
             packages_string = packages.join(" ");
         }
         else {
-            return ActionResult::InvalidParams("No 'package' string parameter or 'packages' string array parameter were specified.".to_string());
+            return Err(ActionError::InvalidParams("No 'package' string parameter or 'packages' string array parameter were specified.".to_string()));
         }
 
         if packages_string.is_empty() {
-            return ActionResult::InvalidParams("The resulting 'packages' string list was empty.".to_string());
+            return Err(ActionError::InvalidParams("The resulting 'packages' string list was empty.".to_string()));
         }
 
         // with some providers (Vultr), apt-get runs automatically just after the instance first starts,
@@ -130,14 +130,15 @@ impl ActionProvider for AProviderLinuxDebian {
         connection.conn.send_command(&self.post_process_command(&apt_get_command));
 
         if connection.conn.did_exit_with_error_code() {
-            return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&apt_get_command,
-                action));
+            return Err(ActionError::FailedCommand(
+                connection.conn.return_failed_command_error_response_str(&apt_get_command,
+                action)));
         }
 
-        return ActionResult::Success;
+        Ok(())
     }
 
-    fn remove_packages(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn remove_packages(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         // use apt-get, because the commands for that will apparently be much more stable, compared to apt
         // which might change as it's designed to be more user-facing...
 
@@ -151,11 +152,11 @@ impl ActionProvider for AProviderLinuxDebian {
             packages_string = packages.join(" ");
         }
         else {
-            return ActionResult::InvalidParams("No 'package' string parameter or 'packages' string array parameter were specified.".to_string());
+            return Err(ActionError::InvalidParams("No 'package' string parameter or 'packages' string array parameter were specified.".to_string()));
         }
 
         if packages_string.is_empty() {
-            return ActionResult::InvalidParams("The resulting 'packages' string list was empty.".to_string());
+            return Err(ActionError::InvalidParams("The resulting 'packages' string list was empty.".to_string()));
         }
 
         // with some providers (Vultr), apt-get runs automatically just after the instance first starts,
@@ -189,72 +190,72 @@ impl ActionProvider for AProviderLinuxDebian {
 
         if connection.conn.did_exit_with_error_code() {
             if !ignore_failure {
-                return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&apt_get_command,
-                    action));
+                return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&apt_get_command,
+                    action)));
             }
         }
 
-        return ActionResult::Success;
+        Ok(())
     }
 
-    fn systemctrl(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn systemctrl(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_linux::systemctrl(self, connection, action);
     }
 
-    fn firewall(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn firewall(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         // debian doesn't need ufw firewall enabled first before adding rules
         return common_actions_linux::firewall(self, connection, action, false);
     }
 
-    fn edit_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn edit_file(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_unix::edit_file(self, connection, action);
     }
 
-    fn copy_path(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn copy_path(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_unix::copy_path(self, connection, action);
     }
 
-    fn remove_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn remove_file(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_unix::remove_file(self, connection, action);
     }
 
-    fn download_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn download_file(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_unix::download_file(self, connection, action);
     }
 
-    fn transmit_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn transmit_file(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_unix::transmit_file(self, connection, action);
     }
 
-    fn receive_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn receive_file(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_unix::receive_file(self, connection, action);
     }
 
-    fn create_symlink(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn create_symlink(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_unix::create_symlink(self, connection, action);
     }
 
-    fn set_time_zone(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn set_time_zone(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_linux::set_time_zone(self, connection, action);
     }
 
-    fn disable_swap(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn disable_swap(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_linux::disable_swap(self, connection, action);
     }
 
-    fn create_file(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn create_file(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_unix::create_file(self, connection, action);
     }
 
-    fn add_group(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn add_group(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_linux::add_group(self, connection, action);
     }
 
-    fn set_hostname(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn set_hostname(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_linux::set_hostname(self, connection, action);
     }
 
-    fn create_systemd_service(&self, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+    fn create_systemd_service(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         return common_actions_linux::create_systemd_service(self, connection, action);
     }
 }

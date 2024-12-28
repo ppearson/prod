@@ -15,28 +15,25 @@
 
 use super::common_actions_unix_edit_file;
 
-use super::control_actions::{ActionProvider, ActionResult, ControlAction};
+use super::control_actions::{ActionProvider, ActionError, ControlAction};
 use super::control_common::ControlSession;
 
-pub fn generic_command(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-    if !action.params.has_value("command") {
-        return ActionResult::InvalidParams("The 'command' parameter was not specified.".to_string());
-    }
-
-    let command = action.params.get_string_value("command").unwrap();
+pub fn generic_command(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
+    let command = action.get_required_string_param("command")?;
     if !command.is_empty() {
         connection.conn.send_command(&action_provider.post_process_command(&command));
     }
 
     if action.params.get_value_as_bool("errorIfStdErrOutputExists", false) {
         if let Some(strerr) = connection.conn.get_previous_stderr_response() {
-            return ActionResult::FailedCommand(format!("genericCommand action failed due to unexpected stderr output: {}", strerr));
+            return Err(ActionError::FailedCommand(format!("genericCommand action failed due to unexpected stderr output: {}", strerr)));
         }
     }
 
     if action.params.get_value_as_bool("errorIfNone0ExitCode", false) {
         if connection.conn.did_exit_with_error_code() {
-            return ActionResult::FailedCommand(format!("genericCommand action failed due to none-0 exit code."));
+            return Err(ActionError::FailedCommand(format!("genericCommand action failed due to none-0 exit code.")));
         }
     }
 
@@ -45,16 +42,12 @@ pub fn generic_command(action_provider: &dyn ActionProvider, connection: &mut Co
 
     // TODO: support for specifying expected number of lines of output as well...
 
-    return ActionResult::Success;
+    Ok(())
 }
 
-pub fn create_directory(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-    // validate params
-    if !action.params.has_value("path") {
-        return ActionResult::InvalidParams("The 'path' parameter was not specified.".to_string());
-    }
-
-    let path_to_create = action.params.get_string_value("path").unwrap();
+pub fn create_directory(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
+    let path_to_create = action.get_required_string_param("path")?;
 
     // TODO: not sure about this... Maybe it should be called something else, maybe it should
     //       be the default?
@@ -69,8 +62,8 @@ pub fn create_directory(action_provider: &dyn ActionProvider, connection: &mut C
     connection.conn.send_command(&action_provider.post_process_command(&mkdir_command));
 
     if connection.conn.did_exit_with_error_code() {
-        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&mkdir_command,
-            action));
+        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&mkdir_command,
+            action)));
     }
 
     if let Some(permissions) = action.params.get_string_or_int_value_as_string("permissions") {
@@ -78,8 +71,8 @@ pub fn create_directory(action_provider: &dyn ActionProvider, connection: &mut C
         connection.conn.send_command(&action_provider.post_process_command(&chmod_command));
 
         if connection.conn.did_exit_with_error_code() {
-            return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&chmod_command,
-                action));
+            return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&chmod_command,
+                action)));
         }
     }
 
@@ -88,8 +81,8 @@ pub fn create_directory(action_provider: &dyn ActionProvider, connection: &mut C
         connection.conn.send_command(&action_provider.post_process_command(&chown_command));
 
         if connection.conn.did_exit_with_error_code() {
-            return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&chown_command,
-                action));
+            return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&chown_command,
+                action)));
         }
     }
 
@@ -98,23 +91,19 @@ pub fn create_directory(action_provider: &dyn ActionProvider, connection: &mut C
         connection.conn.send_command(&action_provider.post_process_command(&chgrp_command));
 
         if connection.conn.did_exit_with_error_code() {
-            return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&chgrp_command,
-                action));
+            return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&chgrp_command,
+                action)));
         }
     }
 
     // TODO: check for 'groups' as well to handle setting multiple...
 
-    return ActionResult::Success;
+    Ok(())
 }
 
-pub fn remove_directory(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-    // validate params
-    if !action.params.has_value("path") {
-        return ActionResult::InvalidParams("The 'path' parameter was not specified.".to_string());
-    }
-
-    let path_to_remove = action.params.get_string_value("path").unwrap();
+pub fn remove_directory(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
+    let path_to_remove = action.get_required_string_param("path")?;
 
     let recursive = action.params.get_value_as_bool("recursive", true);
     let rmdir_command;
@@ -130,30 +119,23 @@ pub fn remove_directory(action_provider: &dyn ActionProvider, connection: &mut C
 
     connection.conn.send_command(&action_provider.post_process_command(&rmdir_command));
     if !ignore_failure && connection.conn.did_exit_with_error_code() {
-        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&rmdir_command,
-            action));
+        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&rmdir_command,
+            action)));
     }
 
-    return ActionResult::Success;
+    Ok(())
 }
 
-pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
     return common_actions_unix_edit_file::edit_file(action_provider, connection, action);
 }
 
-pub fn copy_path(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-    let source_path = action.params.get_string_value("sourcePath");
-    if source_path.is_none() {
-        return ActionResult::InvalidParams("The 'sourcePath' parameter was not specified.".to_string());
-    }
-    let source_path = source_path.unwrap();
-
-    let dest_path = action.params.get_string_value("destPath");
-    if dest_path.is_none() {
-        return ActionResult::InvalidParams("The 'destPath' parameter was not specified.".to_string());
-    }
-    let dest_path = dest_path.unwrap();
-
+pub fn copy_path(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
+    let source_path = action.get_required_string_param("sourcePath")?;
+    let dest_path = action.get_required_string_param("destPath")?;
+   
     let recursive = action.params.get_value_as_bool("recursive", false);
     let update = action.params.get_value_as_bool("update", false);
 
@@ -170,19 +152,16 @@ pub fn copy_path(action_provider: &dyn ActionProvider, connection: &mut ControlS
     connection.conn.send_command(&action_provider.post_process_command(&cp_command));
 
     if connection.conn.did_exit_with_error_code() {
-        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&cp_command,
-            action));
+        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&cp_command,
+            action)));
     }
 
-    return ActionResult::Success;
+    Ok(())
 }
 
-pub fn remove_file(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-    let path = action.params.get_string_value("path");
-    if path.is_none() {
-        return ActionResult::InvalidParams("The 'path' parameter was not specified.".to_string());
-    }
-    let path = path.unwrap();
+pub fn remove_file(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
+    let path = action.get_required_string_param("path")?;
 
     let rm_command = format!("rm {}", path);
 
@@ -190,25 +169,17 @@ pub fn remove_file(action_provider: &dyn ActionProvider, connection: &mut Contro
 
     connection.conn.send_command(&action_provider.post_process_command(&rm_command));
     if !ignore_failure && connection.conn.did_exit_with_error_code() {
-        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&rm_command,
-            action));
+        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&rm_command,
+            action)));
     }
 
-    return ActionResult::Success;
+    Ok(())
 }
 
-pub fn download_file(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-    let source_url = action.params.get_string_value("sourceURL");
-    if source_url.is_none() {
-        return ActionResult::InvalidParams("The 'sourceURL' parameter was not specified.".to_string());
-    }
-    let source_url = source_url.unwrap();
-
-    let dest_path = action.params.get_string_value("destPath");
-    if dest_path.is_none() {
-        return ActionResult::InvalidParams("The 'destPath' parameter was not specified.".to_string());
-    }
-    let dest_path = dest_path.unwrap();
+pub fn download_file(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
+    let source_url = action.get_required_string_param("sourceURL")?;
+    let dest_path = action.get_required_string_param("destPath")?;
 
     // use wget (maybe curl backup?) for the moment
     let wget_command = format!("wget {} -O {}", source_url, dest_path);
@@ -239,7 +210,7 @@ pub fn download_file(action_provider: &dyn ActionProvider, connection: &mut Cont
             // check the output is "yep"
             if connection.conn.get_previous_stdout_response().is_empty() {
                 // doesn't exist...
-                return ActionResult::FailedOther(format!("The 'extractDir' parameter directory: '{}' does not exist.", extract_dir));
+                return Err(ActionError::FailedOther(format!("The 'extractDir' parameter directory: '{}' does not exist.", extract_dir)));
             }
 
             // TODO: and check permissions?
@@ -258,24 +229,17 @@ pub fn download_file(action_provider: &dyn ActionProvider, connection: &mut Cont
         }
     }
 
-    return ActionResult::Success;
+    Ok(())
 }
 
-pub fn transmit_file(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+pub fn transmit_file(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
     // local source path
     // TODO: not sure about this naming...
-    let source_path = action.params.get_string_value("localSourcePath");
-    if source_path.is_none() {
-        return ActionResult::InvalidParams("The 'localSourcePath' parameter was not specified.".to_string());
-    }
-    let source_path = source_path.unwrap();
-
+    let source_path = action.get_required_string_param("localSourcePath")?;
+   
     // remote destination path
-    let dest_path = action.params.get_string_value("remoteDestPath");
-    if dest_path.is_none() {
-        return ActionResult::InvalidParams("The 'remoteDestPath' parameter was not specified.".to_string());
-    }
-    let dest_path = dest_path.unwrap();
+    let dest_path = action.get_required_string_param("remoteDestPath")?;
 
     let mut mode = 0o644;
     if let Some(permissions) = action.params.get_string_or_int_value_as_string("permissions") {
@@ -284,7 +248,7 @@ pub fn transmit_file(action_provider: &dyn ActionProvider, connection: &mut Cont
 
     let send_res = connection.conn.send_file(&source_path, &dest_path, mode);
     if send_res.is_err() {
-        return ActionResult::FailedOther("Failed to send file to host".to_string());
+        return Err(ActionError::FailedOther("Failed to send file to host".to_string()));
     }
 
     if let Some(owner) = action.params.get_string_value("owner") {
@@ -307,7 +271,7 @@ pub fn transmit_file(action_provider: &dyn ActionProvider, connection: &mut Cont
             // check the output is "yep"
             if connection.conn.get_previous_stdout_response().is_empty() {
                 // doesn't exist...
-                return ActionResult::FailedOther(format!("The 'extractDir' parameter directory: '{}' does not exist.", extract_dir));
+                return Err(ActionError::FailedOther(format!("The 'extractDir' parameter directory: '{}' does not exist.", extract_dir)));
             }
 
             // TODO: and check permissions?
@@ -328,64 +292,46 @@ pub fn transmit_file(action_provider: &dyn ActionProvider, connection: &mut Cont
         }
     }
 
-    return ActionResult::Success;
+    Ok(())
 }
 
-pub fn receive_file(_action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
+pub fn receive_file(_action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
     // remote source path
     // TODO: not sure about this naming...
-    let source_path = action.params.get_string_value("remoteSourcePath");
-    if source_path.is_none() {
-        return ActionResult::InvalidParams("The 'remoteSourcePath' parameter was not specified.".to_string());
-    }
-    let source_path = source_path.unwrap();
-
+    let source_path = action.get_required_string_param("remoteSourcePath")?;
+ 
     // local destination path
-    let dest_path = action.params.get_string_value("localDestPath");
-    if dest_path.is_none() {
-        return ActionResult::InvalidParams("The 'localDestPath' parameter was not specified.".to_string());
-    }
-    let dest_path = dest_path.unwrap();
+    let dest_path = action.get_required_string_param("localDestPath")?;
 
     let send_res = connection.conn.receive_file(&source_path, &dest_path);
     if send_res.is_err() {
-        return ActionResult::FailedOther("Failed to receive file from host".to_string());
+        return Err(ActionError::FailedOther("Failed to receive file from host".to_string()));
     }
 
-    return ActionResult::Success;
+    Ok(())
 }
 
-pub fn create_symlink(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-    let target_path = action.params.get_string_value("targetPath");
-    if target_path.is_none() {
-        return ActionResult::InvalidParams("The 'targetPath' parameter was not specified.".to_string());
-    }
-    let target_path = target_path.unwrap();
-
+pub fn create_symlink(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
+    let target_path = action.get_required_string_param("targetPath")?;
+  
     // link path
-    let link_path = action.params.get_string_value("linkPath");
-    if link_path.is_none() {
-        return ActionResult::InvalidParams("The 'linkPath' parameter was not specified.".to_string());
-    }
-    let link_path = link_path.unwrap();
+    let link_path = action.get_required_string_param("linkPath")?;
     let ln_command = format!("ln -s {} {}", target_path, link_path);
     connection.conn.send_command(&action_provider.post_process_command(&ln_command));
 
     if connection.conn.did_exit_with_error_code() {
-        return ActionResult::FailedCommand(connection.conn.return_failed_command_error_response_str(&ln_command,
-            action));
+        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&ln_command,
+            action)));
     }
 
-    return ActionResult::Success;
+    Ok(())
 }
 
-pub fn create_file(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction) -> ActionResult {
-    // validate params
-    if !action.params.has_value("path") {
-        return ActionResult::InvalidParams("The 'path' parameter was not specified.".to_string());
-    }
-
-    let path_to_create = action.params.get_string_value("path").unwrap();
+pub fn create_file(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
+    let path_to_create = action.get_required_string_param("path")?;
 
     // TODO: maybe add support for creating any subdirs if required?
     
@@ -394,7 +340,7 @@ pub fn create_file(action_provider: &dyn ActionProvider, connection: &mut Contro
         // send the content as a file to write
         let send_res = connection.conn.send_text_file_contents(&path_to_create, 0o644, &content);
         if send_res.is_err() {
-            return ActionResult::FailedOther("Failed to send text file contents to create file.".to_string());
+            return Err(ActionError::FailedOther("Failed to send text file contents to create file.".to_string()));
         }
     }
     else {
@@ -402,7 +348,7 @@ pub fn create_file(action_provider: &dyn ActionProvider, connection: &mut Contro
         let touch_command = format!("touch {}", path_to_create);
         connection.conn.send_command(&action_provider.post_process_command(&touch_command));
         if let Some(strerr) = connection.conn.get_previous_stderr_response() {
-            return ActionResult::FailedOther(format!("Failed to create file: Err: {}", strerr));
+            return Err(ActionError::FailedOther(format!("Failed to create file: Err: {}", strerr)));
         }
     }
 
@@ -424,5 +370,5 @@ pub fn create_file(action_provider: &dyn ActionProvider, connection: &mut Contro
 
     // TODO: check for 'groups' as well to handle setting multiple...
 
-    return ActionResult::Success;
+    Ok(())
 }

@@ -18,7 +18,6 @@ Control
 Smaller things:
 
 * Pre-validation of action parameters, before actually starting to connect and run actions.
-* Reduce code duplication of testing for and then getting/unwrapping parameter values.
 * Better addUser support for setting user passwords and validating that the password has been set correctly.
 * Better support for running as non-root user - i.e. using sudo.
 * Much better unit testing - especially for the Edit File control action functionality.
