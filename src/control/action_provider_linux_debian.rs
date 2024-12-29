@@ -30,17 +30,17 @@ impl AProviderLinuxDebian {
     }
 
     pub fn name() -> String {
-        return "linux_debian".to_string();
+        "linux_debian".to_string()
     }
 }
 
 impl ActionProvider for AProviderLinuxDebian {
     fn name(&self) -> String {
-        return "linux_debian".to_string();
+        AProviderLinuxDebian::name()
     }
 
     fn get_session_params(&self) -> Option<&ControlSessionParams> {
-        return Some(&self.session_params);
+        Some(&self.session_params)
     }
 
     fn generic_command(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {

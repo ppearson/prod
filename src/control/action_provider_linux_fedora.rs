@@ -30,17 +30,17 @@ impl AProviderLinuxFedora {
     }
 
     pub fn name() -> String {
-        return "linux_fedora".to_string();
+        "linux_fedora".to_string()
     }
 }
 
 impl ActionProvider for AProviderLinuxFedora {
     fn name(&self) -> String {
-        return "linux_fedora".to_string();
+        AProviderLinuxFedora::name()
     }
 
     fn get_session_params(&self) -> Option<&ControlSessionParams> {
-        return Some(&self.session_params);
+        Some(&self.session_params)
     }
 
     fn generic_command(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {

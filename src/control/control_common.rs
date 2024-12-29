@@ -51,7 +51,7 @@ pub struct UserAuthUserPass {
 
 impl UserAuthUserPass {
     pub fn new(user: &str, pass: &str) -> UserAuthUserPass {
-        return UserAuthUserPass { username: user.to_string(), password: pass.to_string() };
+        UserAuthUserPass { username: user.to_string(), password: pass.to_string() }
     }
 }
 
@@ -66,7 +66,7 @@ pub struct UserAuthPublicKey {
 impl UserAuthPublicKey {
     // TODO: pass in as String here so this is less verbose?
     pub fn new(username: &str, publickey_path: &str, privatekey_path: &str, passphrase: &str) -> UserAuthPublicKey {
-        return UserAuthPublicKey { username: username.to_string(), publickey_path: publickey_path.to_string(),
+        UserAuthPublicKey { username: username.to_string(), publickey_path: publickey_path.to_string(),
                                    privatekey_path: privatekey_path.to_string(), passphrase: passphrase.to_string() }
     }
 }

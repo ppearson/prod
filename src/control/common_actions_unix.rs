@@ -52,13 +52,12 @@ pub fn create_directory(action_provider: &dyn ActionProvider, connection: &mut C
     // TODO: not sure about this... Maybe it should be called something else, maybe it should
     //       be the default?
     let multi_level = action.params.get_value_as_bool("multiLevel", false);
-    let mkdir_command;
-    if !multi_level {
-        mkdir_command = format!("mkdir {}", path_to_create);
+    let mkdir_command = if !multi_level {
+        format!("mkdir {}", path_to_create)
     }
     else {
-        mkdir_command = format!("mkdir -p {}", path_to_create);
-    }
+        format!("mkdir -p {}", path_to_create)
+    };
     connection.conn.send_command(&action_provider.post_process_command(&mkdir_command));
 
     if connection.conn.did_exit_with_error_code() {
@@ -106,14 +105,13 @@ pub fn remove_directory(action_provider: &dyn ActionProvider, connection: &mut C
     let path_to_remove = action.get_required_string_param("path")?;
 
     let recursive = action.params.get_value_as_bool("recursive", true);
-    let rmdir_command;
-    if !recursive {
+    let rmdir_command = if !recursive {
         // TODO: Not really clear if this is worth it...
-        rmdir_command = format!("rmdir {}", path_to_remove);
+        format!("rmdir {}", path_to_remove)
     }
     else {
-        rmdir_command = format!("rm -rf {}", path_to_remove);
-    }
+        format!("rm -rf {}", path_to_remove)
+    };
 
     let ignore_failure = action.params.get_value_as_bool("ignoreFailure", false);
 
@@ -128,7 +126,7 @@ pub fn remove_directory(action_provider: &dyn ActionProvider, connection: &mut C
 
 pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
 ) -> Result<(), ActionError> {
-    return common_actions_unix_edit_file::edit_file(action_provider, connection, action);
+    common_actions_unix_edit_file::edit_file(action_provider, connection, action)
 }
 
 pub fn copy_path(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
@@ -298,7 +296,7 @@ pub fn transmit_file(action_provider: &dyn ActionProvider, connection: &mut Cont
 
             // also check exit code...
             if connection.conn.did_exit_with_error_code() {
-                return Err(ActionError::FailedCommand(format!("Failed to extract file, extraction command returned a non-0 exit code.")));
+                return Err(ActionError::FailedCommand("Failed to extract file, extraction command returned a non-0 exit code.".to_string()));
             }
 
             // otherwise, it's hopefully succeeded.

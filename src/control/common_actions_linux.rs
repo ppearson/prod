@@ -158,21 +158,19 @@ pub fn firewall(action_provider: &dyn ActionProvider, connection: &mut ControlSe
         // according to ufw's man, adding rules before ufw is enabled is supported (and works fine under debian/ubuntu),
         // but fedora doesn't seem to like this first time around after install, and you seemingly need to enable ufw before
         // it will accept any rules, hence the below conditional logic...
-        if start_first {
-            if action.params.has_value("enabled") {
-                let is_enabled = action.params.get_value_as_bool("enabled", true);
-                let ufw_command = format!("ufw --force {}", if is_enabled { "enable" } else { "disable"});
-                connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
+        if start_first && action.params.has_value("enabled") {
+            let is_enabled = action.params.get_value_as_bool("enabled", true);
+            let ufw_command = format!("ufw --force {}", if is_enabled { "enable" } else { "disable"});
+            connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
 
-                // we can't just rely on stderr being useful here, i.e. if ufw wasn't installed or something...
-                if connection.conn.did_exit_with_error_code() {
-                    // stdout can sometimes be useful though, so look for obvious things to be a bit more helpful
-                    if connection.conn.get_previous_stdout_response().contains("ufw: command not found") {
-                        eprintln!("Error in 'firewall' action: 'ufw' does not seem to be installed.");
-                    }
-                    return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&ufw_command,
-                        action)));
+            // we can't just rely on stderr being useful here, i.e. if ufw wasn't installed or something...
+            if connection.conn.did_exit_with_error_code() {
+                // stdout can sometimes be useful though, so look for obvious things to be a bit more helpful
+                if connection.conn.get_previous_stdout_response().contains("ufw: command not found") {
+                    eprintln!("Error in 'firewall' action: 'ufw' does not seem to be installed.");
                 }
+                return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&ufw_command,
+                    action)));
             }
         }
 
@@ -434,10 +432,10 @@ pub fn set_hostname(action_provider: &dyn ActionProvider, connection: &mut Contr
 
     // validate that it was set
     let hostnamectrl = "hostnamectl";
-    connection.conn.send_command(&action_provider.post_process_command(&hostnamectrl));
+    connection.conn.send_command(&action_provider.post_process_command(hostnamectrl));
 
     if connection.conn.did_exit_with_error_code() {
-        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(&hostnamectrl,
+        return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(hostnamectrl,
             action)));
     }
 

@@ -298,7 +298,7 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
             }
         }
 
-        return false;
+        false
     };
 
     // this is disgusting, but can't be bothered with an enum...

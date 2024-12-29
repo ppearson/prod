@@ -108,10 +108,10 @@ impl ControlConnectionSshRs {
                 return Err(RemoteFileContentsControlError::TransferError(err.to_string()));
             }
             
-            return Ok(file_contents);
+            Ok(file_contents)
         }
         else {
-            return Err(RemoteFileContentsControlError::CantCreateLocalTempFile(file_handle.err().unwrap().to_string()));
+            Err(RemoteFileContentsControlError::CantCreateLocalTempFile(file_handle.err().unwrap().to_string()))
         }
     }
 
@@ -151,14 +151,14 @@ impl ControlConnectionSshRs {
         }
 
         let scp = self.local_session.open_scp();
-        if let Err(err) = scp {
+        if let Err(_err) = scp {
             // TODO:
             return Err(());
         }
         let scp = scp.unwrap();
        
         let res = scp.upload(Path::new(&local_filepath), Path::new(dest_filepath));
-        if let Err(err) = res {
+        if let Err(_err) = res {
             return Err(());
         }
 
@@ -167,14 +167,14 @@ impl ControlConnectionSshRs {
 
     fn receive_file_via_scp(&mut self, remote_filepath: &str, local_filepath: &str) -> Result<(), ()> {
         let scp = self.local_session.open_scp();
-        if let Err(err) = scp {
+        if let Err(_err) = scp {
             // TODO:
             return Err(());
         }
         let scp = scp.unwrap();
        
         let res = scp.download(Path::new(&local_filepath), Path::new(remote_filepath));
-        if let Err(err) = res {
+        if let Err(_err) = res {
             return Err(());
         }
 
@@ -191,11 +191,11 @@ impl ControlConnection for ControlConnectionSshRs {
     }
 
     fn had_command_response(&self) -> bool {
-        return !self.prev_std_out.is_empty();
+        !self.prev_std_out.is_empty()
     }
 
     fn get_previous_stdout_response(&self) -> &str {
-        return &self.prev_std_out;
+        &self.prev_std_out
     }
 
     fn get_previous_stderr_response(&self) -> Option<&str> {
@@ -207,7 +207,7 @@ impl ControlConnection for ControlConnectionSshRs {
     }
 
     fn get_exit_code(&self) -> Option<i32> {
-        return self.exit_code;
+        self.exit_code
     }
 
     fn did_exit_with_error_code(&self) -> bool {

@@ -50,8 +50,7 @@ pub enum CommandResult {
 
 impl ControlManager {
     pub fn new() -> ControlManager {
-        let manager = ControlManager { };
-        manager
+        ControlManager { }
     }
 
     // Not really happy with this, but I can't work out how to nicely self-configure/inspect in a registry,
@@ -287,7 +286,7 @@ impl ControlManager {
             // we need to validate something, so ask the provider for details
             let system_details = provider.get_system_details(&mut connection);
             // TODO: handle error value more correctly (currently inner implementations of get_system_details() eprintln())...
-            if let Err(_) = system_details {
+            if let Err(_err) = system_details {
                 eprintln!("Error: Couldn't validate system host details: error response was received from host request. Aborting.");
                 return;
             }

@@ -77,14 +77,14 @@ pub trait ControlConnection {
     fn return_failed_command_error_response_str(&self, command_string: &str, control_action: &ControlAction) -> String {
         // if there's an stderr response, also include that
         if let Some(std_err_response) = self.get_previous_stderr_response() {
-            return format!("Unexpected error exit code after running command: '{}' within control method: '{}', with stderr response: {}", command_string,
-                            control_action.action, std_err_response);
+            format!("Unexpected error exit code after running command: '{}' within control method: '{}', with stderr response: {}", command_string,
+                            control_action.action, std_err_response)
         }
         else {
             // we don't have any stderr response (either because there wasn't any, or the control connection
             // backend didn't support getting it, i.e. ssh-rs backend)
-            return format!("Unexpected error exit code after running command: '{}' within control method: '{}'.", command_string,
-                            control_action.action);
+            format!("Unexpected error exit code after running command: '{}' within control method: '{}'.", command_string,
+                            control_action.action)
         }
     }
 

@@ -147,7 +147,7 @@ impl Params {
             return str_val.to_string();
         }
         
-        return default.to_string();
+        default.to_string()
     }
 
     pub fn get_value_as_bool(&self, key: &str, default: bool) -> bool {
