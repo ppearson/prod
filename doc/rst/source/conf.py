@@ -18,7 +18,7 @@
 # -- Project information -----------------------------------------------------
 
 project = 'Prod'
-copyright = '2021-2024, Peter Pearson'
+copyright = '2021-2025, Peter Pearson'
 author = 'Peter Pearson'
 
 # The full version, including alpha/beta/rc tags
