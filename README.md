@@ -7,13 +7,15 @@ Copyright 2021-2025 Peter Pearson.
 Prod is a basic command line VPS provisioning and controlling (configuration / orchestration) tool,
 partially intended as a vehicle to learn the Rust programming language with a new project, as well as to learn
 about HTTP web services from VPS providers, although also to scratch an itch of making my own basic version of
-a VPS provisioning and configuration tool, approximating some functionality of tools like Terraform and Ansible.
+a VPS provisioning and configuration tool, approximating some functionality of tools like Terraform and Ansible
+and re-learn some Linux system administration theory / practices by automating some of it.
 
 Prod's current functionality includes limited support for Provisioning cloud VPS instances (with several providers
 supported to a limited degree), as well as support for Controlling the servers (running commands on them to
 configure them) afterwards, based off YAML scripts describing actions and properties of what is desired.
 
-It's still very much work-in-progress, although it is functional to a basic degree.
+It's still very much work-in-progress, although it is functional to a basic degree for provisioning, and the 
+configuration/control side of things is more functional and is what I'm concentrating on mostly now.
 
 
 Control functionality can utilise either the `ssh2` crate (which depends on openssl) or the `ssh-rs` crate, and this can be
@@ -78,7 +80,8 @@ Control scripts are currently YAML files which control which actions to run, and
 are currently supported.
 
 Below is an example control script which adds a new user, installs fail2ban, stops the fail2ban service, creates local copies of the fail2ban
-config and jail files, edits the local copy, starts the fail2ban service, and then adds a new firewall rule.
+config and jail files, edits the local copy, starts the fail2ban service, then adds a new firewall rule and enables public key authentication
+to sshd and disables password authentication to sshd. Other examples can be found in the examples/control/ directory.
 
     ---
     provider: linux_debian
@@ -128,7 +131,11 @@ config and jail files, edits the local copy, starts the fail2ban service, and th
         type: ufw
         enabled: true
         rules:
+        - "allow ssh"
         - "allow 80/tcp"
+    - configureSSH:
+        passwordAuthentication: false
+        pubKeyAuthentication: true
 
 To run a control script, run:
 
