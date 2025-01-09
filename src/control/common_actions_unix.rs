@@ -37,7 +37,7 @@ pub fn generic_command(action_provider: &dyn ActionProvider, connection: &mut Co
 
     if action.params.get_value_as_bool("errorIfNone0ExitCode").unwrap_or(false) {
         if connection.conn.did_exit_with_error_code() {
-            return Err(ActionError::FailedCommand(format!("genericCommand action failed due to none-0 exit code.")));
+            return Err(ActionError::FailedCommand("genericCommand action failed due to non-0 exit code.".to_string()));
         }
     }
 
