@@ -1,0 +1,8 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - configureSSH:
+    passwordAuthentication: false
+    pubKeyAuthentication: true

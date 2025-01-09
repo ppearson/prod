@@ -85,7 +85,7 @@ impl ActionProvider for AProviderLinuxFedora {
 
         // by default, update the list of packages, as with some providers,
         // this needs to be done first, otherwise packages can't be found...
-        let update_packages = action.params.get_value_as_bool("update", true);
+        let update_packages = action.params.get_value_as_bool("update").unwrap_or(true);
         if update_packages {
             let dnf_command = "dnf -y update".to_string();
             connection.conn.send_command(&self.post_process_command(&dnf_command));
@@ -125,7 +125,7 @@ impl ActionProvider for AProviderLinuxFedora {
         let dnf_command = format!("dnf -y remove {}", packages_string);
         connection.conn.send_command(&self.post_process_command(&dnf_command));
 
-        let ignore_failure = action.params.get_value_as_bool("ignoreFailure", false);
+        let ignore_failure = action.params.get_value_as_bool("ignoreFailure").unwrap_or(false);
 
         if connection.conn.did_exit_with_error_code() {
             if !ignore_failure {
@@ -197,5 +197,9 @@ impl ActionProvider for AProviderLinuxFedora {
 
     fn create_systemd_service(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         common_actions_linux::create_systemd_service(self, connection, action)
+    }
+
+    fn configure_ssh(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
+        common_actions_unix::configure_ssh(self, connection, action)
     }
 }

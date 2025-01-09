@@ -13,7 +13,11 @@
  ---------
 */
 
+use crate::control::terminal_helpers_linux;
+use crate::params::ParamValue;
+
 use super::common_actions_unix_edit_file;
+use super::file_modifier_helpers::{modify_sshd_config_file_contents, ModifySshDConfigParams, SshDPermitRootLoginType};
 
 use super::control_actions::{ActionProvider, ActionError, ControlAction};
 use super::control_common::ControlSession;
@@ -25,13 +29,13 @@ pub fn generic_command(action_provider: &dyn ActionProvider, connection: &mut Co
         connection.conn.send_command(&action_provider.post_process_command(&command));
     }
 
-    if action.params.get_value_as_bool("errorIfStdErrOutputExists", false) {
+    if action.params.get_value_as_bool("errorIfStdErrOutputExists").unwrap_or(false) {
         if let Some(strerr) = connection.conn.get_previous_stderr_response() {
             return Err(ActionError::FailedCommand(format!("genericCommand action failed due to unexpected stderr output: {}", strerr)));
         }
     }
 
-    if action.params.get_value_as_bool("errorIfNone0ExitCode", false) {
+    if action.params.get_value_as_bool("errorIfNone0ExitCode").unwrap_or(false) {
         if connection.conn.did_exit_with_error_code() {
             return Err(ActionError::FailedCommand(format!("genericCommand action failed due to none-0 exit code.")));
         }
@@ -51,7 +55,7 @@ pub fn create_directory(action_provider: &dyn ActionProvider, connection: &mut C
 
     // TODO: not sure about this... Maybe it should be called something else, maybe it should
     //       be the default?
-    let multi_level = action.params.get_value_as_bool("multiLevel", false);
+    let multi_level = action.params.get_value_as_bool("multiLevel").unwrap_or(false);
     let mkdir_command = if !multi_level {
         format!("mkdir {}", path_to_create)
     }
@@ -104,7 +108,7 @@ pub fn remove_directory(action_provider: &dyn ActionProvider, connection: &mut C
 ) -> Result<(), ActionError> {
     let path_to_remove = action.get_required_string_param("path")?;
 
-    let recursive = action.params.get_value_as_bool("recursive", true);
+    let recursive = action.params.get_value_as_bool("recursive").unwrap_or(true);
     let rmdir_command = if !recursive {
         // TODO: Not really clear if this is worth it...
         format!("rmdir {}", path_to_remove)
@@ -113,7 +117,7 @@ pub fn remove_directory(action_provider: &dyn ActionProvider, connection: &mut C
         format!("rm -rf {}", path_to_remove)
     };
 
-    let ignore_failure = action.params.get_value_as_bool("ignoreFailure", false);
+    let ignore_failure = action.params.get_value_as_bool("ignoreFailure").unwrap_or(false);
 
     connection.conn.send_command(&action_provider.post_process_command(&rmdir_command));
     if !ignore_failure && connection.conn.did_exit_with_error_code() {
@@ -134,8 +138,8 @@ pub fn copy_path(action_provider: &dyn ActionProvider, connection: &mut ControlS
     let source_path = action.get_required_string_param("sourcePath")?;
     let dest_path = action.get_required_string_param("destPath")?;
    
-    let recursive = action.params.get_value_as_bool("recursive", false);
-    let update = action.params.get_value_as_bool("update", false);
+    let recursive = action.params.get_value_as_bool("recursive").unwrap_or(false);
+    let update = action.params.get_value_as_bool("update").unwrap_or(false);
 
     let mut option_flags = String::new();
     if recursive {
@@ -163,7 +167,7 @@ pub fn remove_file(action_provider: &dyn ActionProvider, connection: &mut Contro
 
     let rm_command = format!("rm {}", path);
 
-    let ignore_failure = action.params.get_value_as_bool("ignoreFailure", false);
+    let ignore_failure = action.params.get_value_as_bool("ignoreFailure").unwrap_or(false);
 
     connection.conn.send_command(&action_provider.post_process_command(&rm_command));
     if !ignore_failure && connection.conn.did_exit_with_error_code() {
@@ -380,6 +384,137 @@ pub fn create_file(action_provider: &dyn ActionProvider, connection: &mut Contro
     }
 
     // TODO: check for 'groups' as well to handle setting multiple...
+
+    Ok(())
+}
+
+// Note: rather than using the exiting EditFile functionality (which needs improvement), for the moment this is using
+//       bespoke other code to make the config file changes, so as to hopefully be a bit more robust to variations
+//       in things like whitespace...
+pub fn configure_ssh(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
+
+    let mut modify_sshd_config = ModifySshDConfigParams::new();
+
+    // work out what we're doing first from the params...
+    // Note: this param interpretation is done a bit differently for this action method, in order
+    //       to also allow "yes"/"no" values to match sshd_config (not sure how good an idea this is, but)...
+    if let Some(password_authentication) = action.params.get_value_as_bool("passwordAuthentication") {
+        modify_sshd_config.password_authentication = Some(password_authentication);
+    }
+
+    if let Some(permit_empty_passwords) = action.params.get_value_as_bool("permitEmptyPasswords") {
+        modify_sshd_config.permit_empty_passwords = Some(permit_empty_passwords);
+    }
+
+    // this one's a bit awkward, as it can be a third value, as well as true or false,
+    // so rather than getting it as a bool, get it as a raw string...
+    if let Some(permit_root_login) = action.params.get_raw_value("permitRootLogin") {
+        let set_val = match permit_root_login {
+            ParamValue::Bool(true) => Some(SshDPermitRootLoginType::Yes),
+            ParamValue::Bool(false) => Some(SshDPermitRootLoginType::No),
+            ParamValue::Str(str_val) => {
+                match str_val.as_str() {
+                    "prohibit-password" => Some(SshDPermitRootLoginType::ProhibitPassword),
+                    _ => None,
+                }
+            },
+            _ => None,
+        };
+        if set_val.is_none() {
+            return Err(ActionError::InvalidParams(
+                format!("Unrecognised value '{}' for 'permitRootLogin' param of configureSSH action.", permit_root_login)));
+        }
+        modify_sshd_config.permit_root_login = set_val;
+    }
+
+    if let Some(port_num) = action.params.get_value_as_int("port") {
+        if port_num > 0 && port_num <= u16::MAX.into() {
+            modify_sshd_config.port = Some(port_num as u16);
+        }
+        else {
+            return Err(ActionError::InvalidParams("Couldn't parse 'port' param correctly for configureSSH action.".to_string()));
+        }
+    }
+
+    if let Some(pub_key_authentication) = action.params.get_value_as_bool("pubKeyAuthentication") {
+        modify_sshd_config.pub_key_authentication = Some(pub_key_authentication);
+    }
+
+    // if nothing was actually set, it'd be a no-op, so error...
+    if !modify_sshd_config.any_set() {
+        return Err(ActionError::InvalidParams("No valid parameters were set for this configureSSH control action, so it will not do anything.".to_string()));
+    }
+
+    // Note: this is correct for most Linux distros (and FreeBSD I think), however I'm not sure it is for other things
+    //       like MacOS, so if we ever do support more action providers than Linux ones, we might need to conditionally
+    //       change this...
+    const REMOTE_CONF_FILEPATH: &str = "/etc/ssh/sshd_config";
+ 
+    // Note: the Stat returned by scp_recv() is currently a private field, so we can only access bits of it,
+    //       so we need to do a full stat call remotely to get the actual info
+    let stat_command = format!("stat {}", REMOTE_CONF_FILEPATH);
+    connection.conn.send_command(&action_provider.post_process_command(&stat_command));
+    if let Some(strerr) = connection.conn.get_previous_stderr_response() {
+        return Err(ActionError::FailedOther(format!("Error accessing remote file path: {}", strerr)));
+    }
+
+    // make a backup if required
+    if action.params.get_value_as_bool("backup").unwrap_or(false) {
+        // TODO: something more robust than this...
+        let mv_command = format!("cp {0} {0}.bak", REMOTE_CONF_FILEPATH);
+        connection.conn.send_command(&action_provider.post_process_command(&mv_command));
+        if let Some(strerr) = connection.conn.get_previous_stderr_response() {
+            return Err(ActionError::FailedOther(format!("Error making backup copy of remote file path: {}", strerr)));
+        }
+    }
+
+    let stat_response = connection.conn.get_previous_stdout_response().to_string();
+    // get the details from the stat call...
+    let stat_details = terminal_helpers_linux::extract_details_from_stat_output(&stat_response);
+
+    // download the file
+    let string_contents = connection.conn.get_text_file_contents(REMOTE_CONF_FILEPATH).unwrap();
+    if string_contents.is_empty() {
+        eprintln!("Error: remote file: {} has empty contents.", REMOTE_CONF_FILEPATH);
+        return Err(ActionError::FailedOther("".to_string()));
+    }
+
+    let modified_file_contents = modify_sshd_config_file_contents(&string_contents, &modify_sshd_config);
+    // this can't currently fail, but...
+    let modified_file_contents = modified_file_contents.unwrap();
+
+    let mode;
+    if let Some(stat_d) = stat_details {
+        mode = i32::from_str_radix(&stat_d.0, 8).unwrap();
+    }
+    else {
+        mode = 0o644;
+        eprintln!("Can't extract stat details from file. Using 644 as default permissions mode.");
+    }
+    
+    let send_res = connection.conn.send_text_file_contents(REMOTE_CONF_FILEPATH, mode, &modified_file_contents);
+    if let Err(err) = send_res {
+        return Err(ActionError::FailedOther(format!("Failed to send new sshd_conf file contents back to host: {}", err)));
+    }
+
+    // TODO: change user and group of file to cached value from beforehand...
+
+    // assume the edit operation didn't obviously fail, so likely succeeded...
+
+    // TODO: test with sshd -T  ?
+
+    // now restart the sshd service, unless we were asked not to (default is true)
+    let restart_sshd_service = action.params.get_value_as_bool("restartService").unwrap_or(true);
+    if restart_sshd_service {
+        let systemctrl_restart_command = "systemctl restart sshd";
+        connection.conn.send_command(&action_provider.post_process_command(systemctrl_restart_command));
+
+        if connection.conn.did_exit_with_error_code() {
+            return Err(ActionError::FailedCommand(connection.conn.return_failed_command_error_response_str(systemctrl_restart_command,
+                action)));
+        }
+    }
 
     Ok(())
 }

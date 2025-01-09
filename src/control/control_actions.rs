@@ -55,6 +55,7 @@ pub enum ControlActionType {
     AddGroup,
     SetHostname,
     CreateSystemdService,
+    ConfigureSSH,
 }
 
 impl fmt::Display for ControlActionType {
@@ -83,6 +84,7 @@ impl fmt::Display for ControlActionType {
             ControlActionType::AddGroup             => write!(f, "addGroup"),
             ControlActionType::SetHostname          => write!(f, "setHostname"),
             ControlActionType::CreateSystemdService => write!(f, "createSystemdService"),
+            ControlActionType::ConfigureSSH         => write!(f, "configureSSH"),
         }
     }
 }
@@ -326,6 +328,7 @@ impl ControlActions {
             "addGroup" =>               ControlActionType::AddGroup,
             "setHostname" =>            ControlActionType::SetHostname,
             "createSystemdService" =>   ControlActionType::CreateSystemdService,
+            "configureSSH" =>           ControlActionType::ConfigureSSH,
             _ =>                        ControlActionType::Unrecognised
         };
 
@@ -611,6 +614,10 @@ pub trait ActionProvider {
     }
 
     fn create_systemd_service(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
+    }
+
+    fn configure_ssh(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
         Err(ActionError::NotImplemented)
     }
 }

@@ -1,0 +1,10 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - configureSSH:
+    permitEmptyPasswords: false
+    pubKeyAuthentication: true
+    permitRootLogin: prohibit-password
+    port: 2294

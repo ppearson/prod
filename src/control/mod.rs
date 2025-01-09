@@ -34,6 +34,8 @@ pub mod control_manager;
 
 pub mod control_system_validation;
 
+pub mod file_modifier_helpers;
+
 pub mod terminal_helpers_linux;
 pub mod terminal_helpers_unix;
 

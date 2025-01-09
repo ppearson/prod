@@ -72,7 +72,7 @@ pub fn add_user(action_provider: &dyn ActionProvider, connection: &mut ControlSe
         password = read_password().unwrap();
     }
 
-    let create_home = action.params.get_value_as_bool("createHome", true);
+    let create_home = action.params.get_value_as_bool("createHome").unwrap_or(true);
 
     if create_home {
         useradd_command_options.push_str("-m ");
@@ -159,7 +159,7 @@ pub fn firewall(action_provider: &dyn ActionProvider, connection: &mut ControlSe
         // but fedora doesn't seem to like this first time around after install, and you seemingly need to enable ufw before
         // it will accept any rules, hence the below conditional logic...
         if start_first && action.params.has_value("enabled") {
-            let is_enabled = action.params.get_value_as_bool("enabled", true);
+            let is_enabled = action.params.get_value_as_bool("enabled").unwrap_or(true);
             let ufw_command = format!("ufw --force {}", if is_enabled { "enable" } else { "disable"});
             connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
 
@@ -193,7 +193,7 @@ pub fn firewall(action_provider: &dyn ActionProvider, connection: &mut ControlSe
 
          if !start_first {
             if action.params.has_value("enabled") {
-                let is_enabled = action.params.get_value_as_bool("enabled", true);
+                let is_enabled = action.params.get_value_as_bool("enabled").unwrap_or(true);
                 let ufw_command = format!("ufw --force {}", if is_enabled { "enable" } else { "disable"});
                 connection.conn.send_command(&action_provider.post_process_command(&ufw_command));
 
@@ -524,7 +524,7 @@ pub fn create_systemd_service(action_provider: &dyn ActionProvider, connection: 
     }
 
     // check to see if we've been told not to start it now
-    let should_start = action.params.get_value_as_bool("startNow", true);
+    let should_start = action.params.get_value_as_bool("startNow").unwrap_or(true);
     if should_start {
         // now start it
         let systemctrl_start_command = format!("systemctl start {}", service_name);
@@ -559,3 +559,4 @@ pub fn create_systemd_service(action_provider: &dyn ActionProvider, connection: 
 
     Ok(())
 }
+

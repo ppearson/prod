@@ -386,6 +386,9 @@ impl ControlManager {
                 ControlActionType::CreateSystemdService => {
                     provider.create_systemd_service(&mut connection, action)
                 },
+                ControlActionType::ConfigureSSH => {
+                    provider.configure_ssh(&mut connection, action)
+                },
                 ControlActionType::NotSet | ControlActionType::Unrecognised => {
                    Err(ActionError::FailedOther("Invalid Action Type".to_string()))
                 }

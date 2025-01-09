@@ -150,13 +150,22 @@ impl Params {
         default.to_string()
     }
 
-    pub fn get_value_as_bool(&self, key: &str, default: bool) -> bool {
+    pub fn get_value_as_bool(&self, key: &str) -> Option<bool> {
         let res = self.values.get(key);
         if let Some(ParamValue::Bool(val)) = res {
-            return *val;
+            return Some(*val);
         }
         
-        default
+        None
+    }
+
+    pub fn get_value_as_int(&self, key: &str) -> Option<i32> {
+        let res = self.values.get(key);
+        if let Some(ParamValue::Int(val)) = res {
+            return Some(*val);
+        }
+        
+        None
     }
 
     pub fn get_values_as_vec_of_strings(&self, key: &str) -> Vec<String> {

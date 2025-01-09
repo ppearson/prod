@@ -22,10 +22,41 @@ use super::terminal_helpers_linux;
 
 use std::collections::BTreeMap;
 
+// an attempt to make this code a bit more re-useable by other commands...
+pub struct EditFileParams {
+    filepath:       String,
+    backup:         bool,
+
+    replace_line_items:     Vec<ReplaceLineEntry>,
+    insert_line_items:      Vec<InsertLineEntry>,
+    comment_line_items:     Vec<CommentLineEntry>,
+}
+
+impl EditFileParams {
+    pub fn new(filepath: &str, backup: bool) -> Self {
+        EditFileParams { filepath: filepath.to_string(),
+             backup,
+             replace_line_items: Vec::new(),
+             insert_line_items: Vec::new(),
+             comment_line_items: Vec::new() }
+    }
+
+    pub fn set_all_items(mut self,
+        replace_line_items: Vec<ReplaceLineEntry>,
+        insert_line_items:  Vec<InsertLineEntry>,
+        comment_line_items: Vec<CommentLineEntry>) -> Self {
+
+        self.replace_line_items = replace_line_items;
+        self.insert_line_items = insert_line_items;
+        self.comment_line_items = comment_line_items;
+        self
+    }
+}
+
 // TODO: these two sets of enums/structs and functions have some duplication - see if we can reduce that...
 
 #[derive(Clone, Debug, PartialEq)]
-enum FileEditMatchType {
+pub enum FileEditMatchType {
     Contains,
     Matches,
     StartsWith,
@@ -34,7 +65,7 @@ enum FileEditMatchType {
 
 // TODO: add the ability to have something which will keep any leading whitespace
 //       when replacing, so alignment still matches?
-struct ReplaceLineEntry {
+pub struct ReplaceLineEntry {
     pub match_string:        String,
     pub replace_string:      String,
     pub report_failure:      bool,
@@ -130,12 +161,12 @@ fn process_replace_line_entry(entry: &BTreeMap<String, ParamValue>) -> Option<Re
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum InsertLinePositionType {
+pub enum InsertLinePositionType {
     Above,
     Below,
 }
 
-struct InsertLineEntry {
+pub struct InsertLineEntry {
     pub position_type:       InsertLinePositionType,
     pub match_string:        String,
     pub insert_string:       String,
@@ -191,7 +222,7 @@ fn process_insert_line_entry(entry: &BTreeMap<String, ParamValue>) -> Option<Ins
     None
 }
 
-struct CommentLineEntry {
+pub struct CommentLineEntry {
     pub match_string:        String,
     pub comment_char:        String,
     pub report_failure:      bool,
@@ -231,22 +262,15 @@ fn process_comment_line_entry(entry: &BTreeMap<String, ParamValue>) -> Option<Co
     None
 }
 
+// actual inner method which does most of the work, and in theory could be more re-useable in the future...
 // TODO: this is pretty nasty and hacky, but works for all cases I want so far...
-pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+pub fn perform_edit_file_operation(action_provider: &dyn ActionProvider, connection: &mut ControlSession,
+    edit_file_params: EditFileParams
 ) -> Result<(), ActionError> {
-    let filepath = action.get_required_string_param("filepath")?;
-  
-    let replace_line_items = extract_edit_line_entry_items(&action.params, "replaceLine", &process_replace_line_entry);
-    let insert_line_items = extract_edit_line_entry_items(&action.params, "insertLine", &process_insert_line_entry);
-    let comment_line_items = extract_edit_line_entry_items(&action.params, "commentLine", &process_comment_line_entry);
-    if replace_line_items.is_empty() && insert_line_items.is_empty() && comment_line_items.is_empty() {
-        eprintln!("Error: editFile Control Action had no items to perform...");
-        return Err(ActionError::InvalidParams("".to_string()));
-    }
-    
-    if action.params.get_value_as_bool("backup", false) {
+
+    if edit_file_params.backup {
         // TODO: something more robust than this...
-        let mv_command = format!("cp {0} {0}.bak", filepath);
+        let mv_command = format!("cp {0} {0}.bak", edit_file_params.filepath);
         connection.conn.send_command(&action_provider.post_process_command(&mv_command));
         if let Some(strerr) = connection.conn.get_previous_stderr_response() {
             return Err(ActionError::FailedOther(format!("Error making backup copy of remote file path: {}", strerr)));
@@ -255,7 +279,7 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
 
     // Note: the Stat returned by scp_recv() is currently a private field, so we can only access bits of it,
     //       so we need to do a full stat call remotely to get the actual info
-    let stat_command = format!("stat {}", filepath);
+    let stat_command = format!("stat {}", edit_file_params.filepath);
     connection.conn.send_command(&action_provider.post_process_command(&stat_command));
     if let Some(strerr) = connection.conn.get_previous_stderr_response() {
         return Err(ActionError::FailedOther(format!("Error accessing remote file path: {}", strerr)));
@@ -266,9 +290,9 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
     let stat_details = terminal_helpers_linux::extract_details_from_stat_output(&stat_response);
 
     // download the file
-    let string_contents = connection.conn.get_text_file_contents(&filepath).unwrap();
+    let string_contents = connection.conn.get_text_file_contents(&edit_file_params.filepath).unwrap();
     if string_contents.is_empty() {
-        eprintln!("Error: remote file: {} has empty contents.", filepath);
+        eprintln!("Error: remote file: {} has empty contents.", edit_file_params.filepath);
         return Err(ActionError::FailedOther("".to_string()));
     }
     let file_contents_lines = string_contents.lines();
@@ -320,7 +344,7 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
         //       and assume params will be set exclusively for each, but this is obviously
         //       going to need re-thinking in the future and making more robust...
 
-        for insert_item in &insert_line_items {
+        for insert_item in &edit_file_params.insert_line_items {
             if item_matches_closure(&insert_item.match_type, &insert_item.match_string, line) {
                 insert_type = match insert_item.position_type {
                     InsertLinePositionType::Above => "A".to_string(),
@@ -330,14 +354,14 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
             }
         }
 
-        for replace_item in &replace_line_items {
+        for replace_item in &edit_file_params.replace_line_items {
             if item_matches_closure(&replace_item.match_type, &replace_item.match_string, line) {
                 new_file_contents_lines.push(replace_item.replace_string.clone());
                 have_processed_line = true;
             }
         }
 
-        for comment_item in &comment_line_items {
+        for comment_item in &edit_file_params.comment_line_items {
             if item_matches_closure(&comment_item.match_type, &comment_item.match_string, line) {
                 new_file_contents_lines.push(format!("{}{}", comment_item.comment_char, line));
                 have_processed_line = true;
@@ -368,7 +392,7 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
         eprintln!("Can't extract stat details from file. Using 644 as default permissions mode.");
     }
     
-    let send_res = connection.conn.send_text_file_contents(&filepath, mode, &new_file_contents_string);
+    let send_res = connection.conn.send_text_file_contents(&edit_file_params.filepath, mode, &new_file_contents_string);
     if let Err(err) = send_res {
         return Err(ActionError::FailedOther(format!("Failed to send file contents back to host: {}", err)));
     }
@@ -376,4 +400,22 @@ pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlS
     // TODO: change user and group of file to cached value from beforehand...
 
     Ok(())
+}
+
+pub fn edit_file(action_provider: &dyn ActionProvider, connection: &mut ControlSession, action: &ControlAction
+) -> Result<(), ActionError> {
+    let filepath = action.get_required_string_param("filepath")?;
+  
+    let replace_line_items = extract_edit_line_entry_items(&action.params, "replaceLine", &process_replace_line_entry);
+    let insert_line_items = extract_edit_line_entry_items(&action.params, "insertLine", &process_insert_line_entry);
+    let comment_line_items = extract_edit_line_entry_items(&action.params, "commentLine", &process_comment_line_entry);
+    if replace_line_items.is_empty() && insert_line_items.is_empty() && comment_line_items.is_empty() {
+        eprintln!("Error: editFile Control Action had no items to perform...");
+        return Err(ActionError::InvalidParams("".to_string()));
+    }
+    
+    let edit_file_params = EditFileParams::new(&filepath, action.params.get_value_as_bool("backup").unwrap_or(false))
+        .set_all_items(replace_line_items, insert_line_items, comment_line_items);
+
+    perform_edit_file_operation(action_provider, connection, edit_file_params)
 }

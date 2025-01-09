@@ -88,7 +88,7 @@ impl ActionProvider for AProviderLinuxDebian {
         // with some providers (Vultr), apt-get runs automatically just after the instance first starts,
         // so we can't run apt-get manually, as the lock file is locked, so wait until apt-get has stopped running
         // by default... 
-        let wait_for_apt_get_lockfile = action.params.get_value_as_bool("waitForPMToFinish", true);
+        let wait_for_apt_get_lockfile = action.params.get_value_as_bool("waitForPMToFinish").unwrap_or(true);
         if wait_for_apt_get_lockfile {
             let mut try_count = 0;
             while try_count < 20 {
@@ -115,7 +115,7 @@ impl ActionProvider for AProviderLinuxDebian {
 
         // by default, update the list of packages, as with some providers,
         // this needs to be done first, otherwise packages can't be found...
-        let update_packages = action.params.get_value_as_bool("update", true);
+        let update_packages = action.params.get_value_as_bool("update").unwrap_or(true);
         if update_packages {
             let apt_get_command = "apt-get -y update".to_string();
             connection.conn.send_command(&self.post_process_command(&apt_get_command));
@@ -162,7 +162,7 @@ impl ActionProvider for AProviderLinuxDebian {
         // with some providers (Vultr), apt-get runs automatically just after the instance first starts,
         // so we can't run apt-get manually, as the lock file is locked, so wait until apt-get has stopped running
         // by default... 
-        let wait_for_apt_get_lockfile = action.params.get_value_as_bool("waitForPMToFinish", true);
+        let wait_for_apt_get_lockfile = action.params.get_value_as_bool("waitForPMToFinish").unwrap_or(true);
         if wait_for_apt_get_lockfile {
             let mut try_count = 0;
             while try_count < 20 {
@@ -186,7 +186,7 @@ impl ActionProvider for AProviderLinuxDebian {
         let apt_get_command = format!("export DEBIAN_FRONTEND=noninteractive; apt-get -y remove {}", packages_string);
         connection.conn.send_command(&self.post_process_command(&apt_get_command));
 
-        let ignore_failure = action.params.get_value_as_bool("ignoreFailure", false);
+        let ignore_failure = action.params.get_value_as_bool("ignoreFailure").unwrap_or(false);
 
         if connection.conn.did_exit_with_error_code() {
             if !ignore_failure {
@@ -257,6 +257,10 @@ impl ActionProvider for AProviderLinuxDebian {
 
     fn create_systemd_service(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         common_actions_linux::create_systemd_service(self, connection, action)
+    }
+
+    fn configure_ssh(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
+        common_actions_unix::configure_ssh(self, connection, action)
     }
 }
 
