@@ -486,7 +486,7 @@ pub fn configure_ssh(action_provider: &dyn ActionProvider, connection: &mut Cont
 
     let mode;
     if let Some(stat_d) = stat_details {
-        mode = i32::from_str_radix(&stat_d.0, 8).unwrap();
+        mode = i32::from_str_radix(&stat_d.access_details.permissions_num, 8).unwrap();
     }
     else {
         mode = 0o644;

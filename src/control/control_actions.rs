@@ -56,6 +56,7 @@ pub enum ControlActionType {
     SetHostname,
     CreateSystemdService,
     ConfigureSSH,
+    AddPackageRepo
 }
 
 impl fmt::Display for ControlActionType {
@@ -85,6 +86,7 @@ impl fmt::Display for ControlActionType {
             ControlActionType::SetHostname          => write!(f, "setHostname"),
             ControlActionType::CreateSystemdService => write!(f, "createSystemdService"),
             ControlActionType::ConfigureSSH         => write!(f, "configureSSH"),
+            ControlActionType::AddPackageRepo       => write!(f, "addPackageRepo"),
         }
     }
 }
@@ -329,6 +331,7 @@ impl ControlActions {
             "setHostname" =>            ControlActionType::SetHostname,
             "createSystemdService" =>   ControlActionType::CreateSystemdService,
             "configureSSH" =>           ControlActionType::ConfigureSSH,
+            "addPackageRepo" =>         ControlActionType::AddPackageRepo,
             _ =>                        ControlActionType::Unrecognised
         };
 
@@ -618,6 +621,10 @@ pub trait ActionProvider {
     }
 
     fn configure_ssh(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
+    }
+
+    fn add_package_repo(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
         Err(ActionError::NotImplemented)
     }
 }

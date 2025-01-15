@@ -1,0 +1,11 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: $PROMPT
+ actions:
+ - addPackageRepo:
+    type: manualURL
+    keyURL: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+    sourceListDefURL: https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt
+    localFilePrefix: caddy-stable
+

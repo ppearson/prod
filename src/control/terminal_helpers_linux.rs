@@ -13,13 +13,42 @@
  ---------
 */
 
+// TODO: does this belong in ..HelpersLinux, shouldn't it be in ..HelpersUnix instead?
+
+#[derive(Debug, PartialEq)]
+pub struct StatDetails {
+    pub file_size:      usize,
+    pub access_details: InnerAccessDetails,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct InnerAccessDetails {
+    pub permissions_num:    String,
+    pub owner:              String,
+    pub group:              String,
+}
+
 // returns tuple of access permissions, owner name, group name
-pub fn extract_details_from_stat_output(output: &str) -> Option<(String, String, String)> {
+pub fn extract_details_from_stat_output(output: &str) -> Option<StatDetails> {
+
+    let mut file_size = None;
+    let mut access_details = None;
+
     let lines = output.lines();
     for line in lines {
-        if line.starts_with("Access:") {
-            // first (and only) line we care about...
+        if line.contains("Size: ") && line.len() > 9 {
+            // extract the file size
+            let size_text_end = line.find("Size: ").unwrap() + 6; // need to go past the space
+            if let Some(size_end) = line[size_text_end..].find(char::is_whitespace) {
+                let size_str = &line[size_text_end..size_text_end + size_end];
+    
+                if let Ok(size) = size_str.parse::<usize>() {
+                    file_size = Some(size);
+                }
+            }
+        }
 
+        if line.starts_with("Access:") {
             let res = extract_contents_from_brackets(line);
             if let Some(items) = res {
                 if items.len() == 3 {
@@ -27,27 +56,26 @@ pub fn extract_details_from_stat_output(output: &str) -> Option<(String, String,
                     let owner_full = items[1].clone();
                     let group_full = items[2].clone();
 
-                    let permissions_num = split_once(&permissions_full).unwrap().0;
+                    let permissions_num = permissions_full.split_once('/').unwrap().0;
                     let permissions_num = permissions_num[1..].to_string();
 
-                    let owner = split_once(&owner_full).unwrap().1.trim().to_string();
-                    let group = split_once(&group_full).unwrap().1.trim().to_string();
+                    let owner = owner_full.split_once('/').unwrap().1.trim().to_string();
+                    let group = group_full.split_once('/').unwrap().1.trim().to_string();
 
-                    return Some((permissions_num, owner, group));
+                    access_details = Some(InnerAccessDetails { permissions_num, owner, group });
                 }
             }
 
+            // we should be done now...
             break;
         }
     }
 
-    None
-}
-
-// until we can use 1.52 on all machines...
-fn split_once(string: &str) -> Option<(String, String)> {
-    if let Some(pos) = string.find('/') {
-        return Some((string[..pos].to_string(), string[pos+1..].to_string()));
+    // if we have everything, build the struct and return it
+    if let Some(file_size) = file_size {
+        if let Some(access_details) = access_details {
+            return Some(StatDetails { file_size, access_details });
+        }
     }
 
     None
@@ -98,7 +126,8 @@ mod tests {
     #[test]
     fn test_extract_stat_details1() {
 
-        let stat_response1 = r#"  File: 11.tif
+        let stat_response1 =
+r#"  File: 11.tif
   Size: 71231369  	Blocks: 139128     IO Block: 4096   regular file
 Device: 10301h/66305d	Inode: 3150685     Links: 1
 Access: (0664/-rw-rw-r--)  Uid: ( 1000/   peter)   Gid: ( 1000/   peter)
@@ -112,6 +141,12 @@ Change: 2021-10-18 23:26:34.827018980 +1300
 
         let extracted = extract_details_from_stat_output(&stat_response1);
 
-        assert_eq!(extracted, Some(("664".to_string(), "peter".to_string(), "peter".to_string())));
+        let expected_details = StatDetails { file_size: 71231369,
+            access_details: InnerAccessDetails {
+                permissions_num: "664".to_string(),
+                owner: "peter".to_string(),
+                group: "peter".to_string() }};
+
+        assert_eq!(extracted, Some(expected_details));
     }
 }

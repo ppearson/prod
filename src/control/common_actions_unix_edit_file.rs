@@ -385,7 +385,7 @@ pub fn perform_edit_file_operation(action_provider: &dyn ActionProvider, connect
 
     let mode;
     if let Some(stat_d) = stat_details {
-        mode = i32::from_str_radix(&stat_d.0, 8).unwrap();
+        mode = i32::from_str_radix(&stat_d.access_details.permissions_num, 8).unwrap();
     }
     else {
         mode = 0o644;

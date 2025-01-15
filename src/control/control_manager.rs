@@ -389,6 +389,9 @@ impl ControlManager {
                 ControlActionType::ConfigureSSH => {
                     provider.configure_ssh(&mut connection, action)
                 },
+                ControlActionType::AddPackageRepo => {
+                    provider.add_package_repo(&mut connection, action)
+                },
                 ControlActionType::NotSet | ControlActionType::Unrecognised => {
                    Err(ActionError::FailedOther("Invalid Action Type".to_string()))
                 }

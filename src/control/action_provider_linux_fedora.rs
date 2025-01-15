@@ -202,4 +202,8 @@ impl ActionProvider for AProviderLinuxFedora {
     fn configure_ssh(&self, connection: &mut ControlSession, action: &ControlAction) -> Result<(), ActionError> {
         common_actions_unix::configure_ssh(self, connection, action)
     }
+
+    fn add_package_repo(&self, _connection: &mut ControlSession, _action: &ControlAction) -> Result<(), ActionError> {
+        Err(ActionError::NotImplemented)
+    }
 }

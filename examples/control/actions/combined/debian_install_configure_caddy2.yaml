@@ -1,0 +1,53 @@
+---
+ provider: linux_debian
+ host: $PROMPT
+ user: root
+ # Make sure we're running on Debian 12 or later (with systemd logging)
+ systemValidation: ">=12"
+ actions:
+ - addPackageRepo:
+     type: manualURL
+     keyURL: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+     sourceListDefURL: https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt
+     localFilePrefix: caddy-stable
+ - installPackages:
+     update: false    # because addPackageRepo does an apt update in the action above, we can skip this
+     packages:
+       - "caddy"
+       - "ufw"     # some Debian images on certain VPS providers don't have ufw installed by default, others do
+ - firewall:
+     type: ufw
+     enabled: true
+     rules:
+       - "allow ssh"
+       - "allow 80/tcp"
+       - "allow 443/tcp"
+ - systemCtl:
+     service: "caddy"
+     action: stop
+ - createFile:
+     path: /etc/caddy/Caddyfile
+     content: |
+
+          www.mylovelywebsite.com {
+            redir https://mylovelywebsite.com{uri}
+          }
+
+          mylovelywebsite.com {
+
+            root * /var/www/html/mylovelywebsite.com
+
+            log {
+              output file /var/log/caddy/mylovelywebsite.com.access.log {
+                  roll_size 9mb
+                  roll_keep 20
+              }
+            }
+
+            encode zstd gzip
+
+            file_server
+          }
+ - systemCtl:
+     service: "caddy"
+     action: start
