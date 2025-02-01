@@ -33,17 +33,16 @@
       onceOnly: true
       reportFailure: false
     replaceLine:
-      matchString: 'bantime  = 10m'
-      replaceString: 'bantime  = 120m'
-      matchType: startsWith
-      onceOnly: true
-      reportFailure: false
-    replaceLine:
-      matchString: 'backend = auto'
-      replaceString: 'backend = systemd'
-      matchType: startsWith
-      onceOnly: true
-      reportFailure: false
+      - matchString: 'bantime  = 10m'
+        replaceString: 'bantime  = 120m'
+        matchType: startsWith
+        onceOnly: true
+        reportFailure: false
+      - matchString: 'backend = auto'
+        replaceString: 'backend = systemd'
+        matchType: startsWith
+        onceOnly: true
+        reportFailure: false
  - systemCtl:
     service: "fail2ban"
     action: start
